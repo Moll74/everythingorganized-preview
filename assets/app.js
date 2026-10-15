@@ -15,70 +15,84 @@
     try { localStorage.setItem('eo-theme', root.dataset.theme); } catch (e) {}
   });
 
-  /* ---------- method scene ---------- */
-  const sec = $('.method'), pin = $('#pin'), scene = $('#scene'), cab = $('#cab'), photo = $('#photo');
+  /* ---------- scroll scenes ---------- */
+  const sec = $('.method:not(.method-cards)'), pin = $('#pin'), scene = $('#scene'), cab = $('#cab'), photo = $('#photo');
   const clamp = v => Math.max(0, Math.min(1, v)), ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const steps = sec ? $$('.st', sec) : [], dots = sec ? $$('.dot', sec) : [];
   let lastStep = -1;
-  const setStep = step => { if (step === lastStep) return; lastStep = step; sec.dataset.step = step;
+  const setStep = step => { if (!sec || step === lastStep) return; lastStep = step; sec.dataset.step = step;
     dots.forEach((d, i) => d.classList.toggle('on', i === step)); steps.forEach((s, i) => s.classList.toggle('on', i === step)); };
-  const pinned = draw => {
+  /* progress 0..1 of a tall pinned block -> draw(p); reduced motion: the end state, no pin */
+  const bindPin = (pinEl, draw, onStatic) => {
     let ticking = false;
     const onScroll = () => { if (ticking) return; ticking = true;
-      requestAnimationFrame(() => { ticking = false; const r = pin.getBoundingClientRect(); draw(clamp(-r.top / (r.height - innerHeight))); }); };
+      requestAnimationFrame(() => { ticking = false; const r = pinEl.getBoundingClientRect(); draw(clamp(-r.top / (r.height - innerHeight))); }); };
     const setup = () => {
-      if (reduce.matches) { sec.classList.add('static'); draw(1); steps.forEach(s => s.classList.add('on')); removeEventListener('scroll', onScroll); return; }
-      sec.classList.remove('static'); onScroll(); addEventListener('scroll', onScroll, { passive: true });
+      if (reduce.matches) { onStatic?.(); draw(1); removeEventListener('scroll', onScroll); return; }
+      pinEl.classList.remove('static'); onScroll(); addEventListener('scroll', onScroll, { passive: true });
     };
     addEventListener('resize', () => { draw.resize?.(); onScroll(); });
     reduce.addEventListener?.('change', setup);
     setup();
   };
+  const pinned = draw => bindPin(pin, draw, () => { sec.classList.add('static'); steps.forEach(s => s.classList.add('on')); });
 
-  if (sec && photo) {
-    /* camera = {k, x, y}: image pixel p shows at screen p*k + (x, y). Every frame has an anchor (a cupboard point) and the
-       cupboard width w, so one camera can be expressed in any frame's pixels: the cupboard stays put while frames crossfade. */
-    const F = $$('.fr', photo).map(el => ({ el, ax: +el.dataset.ax, ay: +el.dataset.ay, w: +el.dataset.w }));
-    const IW = +photo.dataset.w, IH = +photo.dataset.h, [sx, sy, sz] = photo.dataset.sort.split(',').map(Number);
-    let SW = 0, SH = 0, cover = 1;
+  /* photo scene: camera = {k, x, y}: image pixel p shows at screen p*k + (x, y). Every frame has an anchor (a subject point)
+     and the subject width w, so one camera can be expressed in any frame's pixels: the subject stays put while frames crossfade.
+     intro = open on the finished state (frame 3), then mess -> emptied -> sorted -> finished. */
+  const photoScene = (el, onP) => {
+    const F = $$('.fr', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
+    const intro = el.dataset.intro === '1';
+    const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
+    let SW = 0, SH = 0, cover = 1, SEG = [];
     const natural = (i, push = 1) => { const k = cover * push; return { i, k, x: (SW - IW * k) / 2, y: (SH - IH * k) / 2 }; };
     const focus = (i, px, py, z) => { const k = cover * z; return { i, k, x: SW * .62 - px * k, y: SH * .62 - py * k }; };
-    const toFrame = (c, j) => {                                      // the same camera expressed in frame j
-      if (c.i === j) return c;
-      const a = F[c.i], b = F[j], k = c.k * a.w / b.w;
-      return { i: j, k, x: a.ax * c.k + c.x - b.ax * k, y: a.ay * c.k + c.y - b.ay * k };
-    };
-    const fit = c => {                                               // never show an edge of the photo
-      const k = Math.max(c.k, cover), x = Math.min(0, Math.max(SW - IW * k, c.x + (IW * (c.k - k)) / 2)), y = Math.min(0, Math.max(SH - IH * k, c.y + (IH * (c.k - k)) / 2));
-      return { ...c, k, x, y };
-    };
+    const toFrame = (c, j) => { if (c.i === j) return c; const a = F[c.i], b = F[j], k = c.k * a.w / b.w;
+      return { i: j, k, x: a.ax * c.k + c.x - b.ax * k, y: a.ay * c.k + c.y - b.ay * k }; };
+    const fit = c => { const k = Math.max(c.k, cover), x = Math.min(0, Math.max(SW - IW * k, c.x + (IW * (c.k - k)) / 2)), y = Math.min(0, Math.max(SH - IH * k, c.y + (IH * (c.k - k)) / 2)); return { ...c, k, x, y }; };
     const mix = (a, b, t) => ({ i: b.i, k: Math.exp(Math.log(a.k) + (Math.log(b.k) - Math.log(a.k)) * t), x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
-    let SEG = [];
     const plan = () => {
-      const r = photo.getBoundingClientRect(); SW = r.width; SH = r.height; cover = Math.max(SW / IW, SH / IH);
-      const n = i => natural(i), np = i => natural(i, 1.06);
-      SEG = [                                                        // [from p, to p, camera A, camera B, crossfade?]
+      const r = el.getBoundingClientRect(); SW = r.width; SH = r.height; cover = Math.max(SW / IW, SH / IH);
+      const n = i => natural(i), np = i => natural(i, 1.06), F_ = focus(2, sx, sy, sz), F2 = focus(2, sx, sy, sz * 1.04);
+      SEG = intro ? [
+        [0, .06, n(3), np(3)], [.06, .16, np(3), n(0), 1], [.16, .2, n(0), np(0)], [.2, .34, np(0), n(1), 1], [.34, .39, n(1), np(1)],
+        [.39, .53, np(1), n(2), 1], [.53, .56, n(2), np(2)], [.56, .68, np(2), F_], [.68, .73, F_, F2], [.73, .9, F2, n(3), 1], [.9, 1.01, n(3), np(3)]]
+      : [                                                            // [from p, to p, camera A, camera B, crossfade?]
         [0, .06, n(0), np(0)], [.06, .24, np(0), n(1), 1], [.24, .3, n(1), np(1)],
-        [.3, .48, np(1), n(2), 1], [.48, .52, n(2), np(2)], [.52, .66, np(2), focus(2, sx, sy, sz)], [.66, .72, focus(2, sx, sy, sz), focus(2, sx, sy, sz * 1.04)],
-        [.72, .92, focus(2, sx, sy, sz * 1.04), n(3), 1], [.92, 1.01, n(3), np(3)]];
+        [.3, .48, np(1), n(2), 1], [.48, .52, n(2), np(2)], [.52, .66, np(2), F_], [.66, .72, F_, F2],
+        [.72, .92, F2, n(3), 1], [.92, 1.01, n(3), np(3)]];
     };
     const place = (f, c, o) => { const q = fit(c); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`; f.el.style.opacity = o; };
     const draw = p => {
       if (!SW) plan();
       const s = SEG.find(g => p < g[1]) || SEG[SEG.length - 1], t = ease(clamp((p - s[0]) / (s[1] - s[0])));
       const A = s[2], B = s[3], cam = mix(toFrame(A, B.i), B, t);
-      F.forEach((f, j) => {
-        if (j === B.i) place(f, cam, s[4] ? t : 1);
-        else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1);
-        else f.el.style.opacity = 0;
-      });
+      F.forEach((f, j) => { if (j === B.i) place(f, cam, s[4] ? t : 1); else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1); else f.el.style.opacity = 0; });
       F[B.i].el.style.zIndex = 2; if (s[4]) F[A.i].el.style.zIndex = 1;
-      setStep(p < .27 ? 0 : p < .5 ? 1 : p < .71 ? 2 : 3);
+      el.dataset.sorting = intro ? +(p >= .54 && p < .73) : +(p >= .5 && p < .72);
+      onP(p, intro);
     };
     draw.resize = plan;
     F.forEach(f => f.el.addEventListener('load', () => { SW = 0; }, { once: true }));
-    pinned(draw);
+    return draw;
+  };
+  /* which of the four steps a progress value belongs to (-1 = the opening "result" shot, -0.5 = the mess before step 1) */
+  const stepOf = (p, intro) => intro ? (p < .11 ? -1 : p < .2 ? -.5 : p < .37 ? 0 : p < .54 ? 1 : p < .72 ? 2 : 3) : (p < .27 ? 0 : p < .5 ? 1 : p < .71 ? 2 : 3);
+
+  if (sec && photo) pinned(photoScene(photo, (p, intro) => setStep(Math.max(0, stepOf(p, intro)))));
+
+  const hpin = $('#hpin'), hph = $('#heroPhoto');
+  if (hpin && hph) {
+    const labels = JSON.parse(hph.dataset.labels), chipH = $('.hv-chip', hph), bar = $('.hv-bar i', hph), hint = $('.hhint');
+    let label = '';
+    const draw = photoScene(hph, (p, intro) => {
+      const st = stepOf(p, intro), l = st === -1 ? labels[0] : st === -.5 ? labels[1] : labels[2 + st];
+      if (l !== label) { label = l; chipH.textContent = l; chipH.classList.remove('pop'); void chipH.offsetWidth; chipH.classList.add('pop'); chipH.classList.toggle('after', st === -1 || st === 3); }
+      bar.style.transform = `scaleX(${p.toFixed(3)})`;
+      if (hint) hint.style.opacity = p > .04 ? 0 : 1;
+    });
+    bindPin(hpin, draw, () => hpin.classList.add('static'));
   }
   if (sec && scene && !photo) {
     const CX = 160, CW = 240, CH = 310, D = 80, ROW = CH / 4, FLOOR = CH;
@@ -143,6 +157,15 @@
     draw.resize = fit; fit();
     pinned(draw);
   }
+
+  /* ---------- video cards: poster + play button; one plays at a time, muted until the viewer turns sound on ---------- */
+  const vids = $$('.vcard video');
+  $$('.vcard').forEach(c => {
+    const v = $('video', c), b = $('.vplay', c);
+    b.addEventListener('click', () => { vids.forEach(o => { if (o !== v) o.pause(); }); v.controls = true; c.classList.add('playing'); v.play().catch(() => {}); });
+    v.addEventListener('pause', () => c.classList.toggle('playing', !v.ended && v.currentTime > 0 && !v.paused));
+    v.addEventListener('ended', () => { c.classList.remove('playing'); v.controls = false; });
+  });
 
   /* ---------- contact form: opens the visitor's mail app (mockup; production posts to SpiderPublish forms) ---------- */
   const f = $('#cform');
