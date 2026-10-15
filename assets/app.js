@@ -53,7 +53,7 @@
   const photoScene = (el, onP) => {
     const F = $$('.fr:not(.ap)', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
     const apEl = $('.fr.ap', el), AP = apEl && { el: apEl, ax: +apEl.dataset.ax, ay: +apEl.dataset.ay, w: +apEl.dataset.w, iw: +apEl.dataset.iw, ih: +apEl.dataset.ih };
-    const A0 = AP ? .3 : 0;                                          // share of the scroll used to move into the room
+    const A0 = AP ? .2 : 0;                                          // share of the scroll used to move into the room
     const intro = el.dataset.intro === '1';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
     let SW = 0, SH = 0, cover = 1, SEG = [], CAM = null;
@@ -85,8 +85,8 @@
       const c = i => toFrame(C, i), hold = (a, b, i) => [a, b, c(i), c(i)], fade = (a, b, i, j) => [a, b, c(i), c(j), 1];
       /* long, even crossfades (about a screen of scrolling each), short rests on each picture */
       SEG = intro
-        ? [hold(0, .05, 3), fade(.05, .21, 3, 0), hold(.21, .26, 0), fade(.26, .44, 0, 1), hold(.44, .48, 1),
-           fade(.48, .62, 1, 2), hold(.62, .74, 2), fade(.74, .94, 2, 3), hold(.94, 1.01, 3)]
+        ? [hold(0, .04, 3), fade(.04, .2, 3, 0), hold(.2, .24, 0), fade(.24, .41, 0, 1), hold(.41, .45, 1),
+           fade(.45, .61, 1, 2), hold(.61, .74, 2), fade(.74, .93, 2, 3), hold(.93, 1.01, 3)]
         : [hold(0, .05, 0), fade(.05, .27, 0, 1), hold(.27, .31, 1), fade(.31, .52, 1, 2), hold(.52, .68, 2),
            fade(.68, .92, 2, 3), hold(.92, 1.01, 3)];
     };
@@ -101,7 +101,7 @@
       const fx = AP.ax * end.k + end.x, fy = AP.ay * end.k + end.y;
       const kS = Math.max(SW / AP.iw, SH / AP.ih) * 1.001, xS = (SW - AP.iw * kS) / 2, yS = (SH - AP.ih * kS) / 2;
       const sx0 = xS + AP.ax * kS, sy0 = yS + AP.ay * kS;
-      const u = clamp((p - .1) / (.88 - .1)), t = (1 - Math.cos(Math.PI * u)) / 2, fadeT = clamp((p - .88) / .12);   // a calm moment on the whole room first
+      const u = clamp((p - .02) / (.86 - .02)), t = (1 - Math.cos(Math.PI * u)) / 2, fadeT = clamp((p - .86) / .14);
       const k = Math.exp(Math.log(kS) + (Math.log(end.k) - Math.log(kS)) * t);
       const cx = (v, room) => Math.min(0, Math.max(room, v));                  // never show an edge of the room photo
       const x = cx(sx0 + (fx - sx0) * t - AP.ax * k, SW - AP.iw * k), y = cx(sy0 + (fy - sy0) * t - AP.ay * k, SH - AP.ih * k);
@@ -117,7 +117,7 @@
       const A = s[2], B = s[3], cam = mix(toFrame(A, B.i), B, t);
       F.forEach((f, j) => { if (j === B.i) place(f, cam, s[4] ? t : 1); else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1); else f.el.style.opacity = 0; });
       F[B.i].el.style.zIndex = 2; if (s[4]) F[A.i].el.style.zIndex = 1;
-      el.dataset.sorting = intro ? +(p >= .6 && p < .77) : +(p >= .5 && p < .71);
+      el.dataset.sorting = intro ? +(p >= .59 && p < .76) : +(p >= .5 && p < .71);
       onP(p, intro);
     };
     draw.resize = plan;
@@ -125,7 +125,7 @@
     return draw;
   };
   /* which of the four steps a progress value belongs to (-1 = the opening "result" shot, -0.5 = the mess before step 1) */
-  const stepOf = (p, intro) => intro ? (p < .12 ? -1 : p < .25 ? -.5 : p < .47 ? 0 : p < .61 ? 1 : p < .75 ? 2 : 3) : (p < .29 ? 0 : p < .51 ? 1 : p < .69 ? 2 : 3);
+  const stepOf = (p, intro) => intro ? (p < .12 ? -1 : p < .23 ? -.5 : p < .44 ? 0 : p < .6 ? 1 : p < .75 ? 2 : 3) : (p < .29 ? 0 : p < .51 ? 1 : p < .69 ? 2 : 3);
 
   if (sec && photo) pinned(photoScene(photo, (p, intro) => setStep(Math.max(0, stepOf(p, intro)))));
 
@@ -140,6 +140,10 @@
       if (hint) hint.style.opacity = p > .04 ? 0 : 1;
     });
     bindPin(hpin, draw, () => hpin.classList.add('static'));
+    /* invite to scroll: the picture breathes very slightly and an arrow bounces until the visitor starts scrolling */
+    const idle = () => { if (scrollY < 8) hpin.classList.add('idle'); };
+    setTimeout(idle, 900);
+    addEventListener('scroll', () => { if (scrollY > 8) hpin.classList.remove('idle'); else idle(); }, { passive: true });
   }
   if (sec && scene && !photo) {
     const CX = 160, CW = 240, CH = 310, D = 80, ROW = CH / 4, FLOOR = CH;
