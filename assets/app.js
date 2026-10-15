@@ -16,8 +16,71 @@
   });
 
   /* ---------- method scene ---------- */
-  const sec = $('.method'), pin = $('#pin'), scene = $('#scene'), cab = $('#cab');
-  if (sec && scene) {
+  const sec = $('.method'), pin = $('#pin'), scene = $('#scene'), cab = $('#cab'), photo = $('#photo');
+  const clamp = v => Math.max(0, Math.min(1, v)), ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const steps = sec ? $$('.st', sec) : [], dots = sec ? $$('.dot', sec) : [];
+  let lastStep = -1;
+  const setStep = step => { if (step === lastStep) return; lastStep = step; sec.dataset.step = step;
+    dots.forEach((d, i) => d.classList.toggle('on', i === step)); steps.forEach((s, i) => s.classList.toggle('on', i === step)); };
+  const pinned = draw => {
+    let ticking = false;
+    const onScroll = () => { if (ticking) return; ticking = true;
+      requestAnimationFrame(() => { ticking = false; const r = pin.getBoundingClientRect(); draw(clamp(-r.top / (r.height - innerHeight))); }); };
+    const setup = () => {
+      if (reduce.matches) { sec.classList.add('static'); draw(1); steps.forEach(s => s.classList.add('on')); removeEventListener('scroll', onScroll); return; }
+      sec.classList.remove('static'); onScroll(); addEventListener('scroll', onScroll, { passive: true });
+    };
+    addEventListener('resize', () => { draw.resize?.(); onScroll(); });
+    reduce.addEventListener?.('change', setup);
+    setup();
+  };
+
+  if (sec && photo) {
+    /* camera = {k, x, y}: image pixel p shows at screen p*k + (x, y). Every frame has an anchor (a cupboard point) and the
+       cupboard width w, so one camera can be expressed in any frame's pixels: the cupboard stays put while frames crossfade. */
+    const F = $$('.fr', photo).map(el => ({ el, ax: +el.dataset.ax, ay: +el.dataset.ay, w: +el.dataset.w }));
+    const IW = +photo.dataset.w, IH = +photo.dataset.h, [sx, sy, sz] = photo.dataset.sort.split(',').map(Number);
+    let SW = 0, SH = 0, cover = 1;
+    const natural = (i, push = 1) => { const k = cover * push; return { i, k, x: (SW - IW * k) / 2, y: (SH - IH * k) / 2 }; };
+    const focus = (i, px, py, z) => { const k = cover * z; return { i, k, x: SW * .62 - px * k, y: SH * .62 - py * k }; };
+    const toFrame = (c, j) => {                                      // the same camera expressed in frame j
+      if (c.i === j) return c;
+      const a = F[c.i], b = F[j], k = c.k * a.w / b.w;
+      return { i: j, k, x: a.ax * c.k + c.x - b.ax * k, y: a.ay * c.k + c.y - b.ay * k };
+    };
+    const fit = c => {                                               // never show an edge of the photo
+      const k = Math.max(c.k, cover), x = Math.min(0, Math.max(SW - IW * k, c.x + (IW * (c.k - k)) / 2)), y = Math.min(0, Math.max(SH - IH * k, c.y + (IH * (c.k - k)) / 2));
+      return { ...c, k, x, y };
+    };
+    const mix = (a, b, t) => ({ i: b.i, k: Math.exp(Math.log(a.k) + (Math.log(b.k) - Math.log(a.k)) * t), x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    let SEG = [];
+    const plan = () => {
+      const r = photo.getBoundingClientRect(); SW = r.width; SH = r.height; cover = Math.max(SW / IW, SH / IH);
+      const n = i => natural(i), np = i => natural(i, 1.06);
+      SEG = [                                                        // [from p, to p, camera A, camera B, crossfade?]
+        [0, .06, n(0), np(0)], [.06, .24, np(0), n(1), 1], [.24, .3, n(1), np(1)],
+        [.3, .48, np(1), n(2), 1], [.48, .52, n(2), np(2)], [.52, .66, np(2), focus(2, sx, sy, sz)], [.66, .72, focus(2, sx, sy, sz), focus(2, sx, sy, sz * 1.04)],
+        [.72, .92, focus(2, sx, sy, sz * 1.04), n(3), 1], [.92, 1.01, n(3), np(3)]];
+    };
+    const place = (f, c, o) => { const q = fit(c); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`; f.el.style.opacity = o; };
+    const draw = p => {
+      if (!SW) plan();
+      const s = SEG.find(g => p < g[1]) || SEG[SEG.length - 1], t = ease(clamp((p - s[0]) / (s[1] - s[0])));
+      const A = s[2], B = s[3], cam = mix(toFrame(A, B.i), B, t);
+      F.forEach((f, j) => {
+        if (j === B.i) place(f, cam, s[4] ? t : 1);
+        else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1);
+        else f.el.style.opacity = 0;
+      });
+      F[B.i].el.style.zIndex = 2; if (s[4]) F[A.i].el.style.zIndex = 1;
+      setStep(p < .27 ? 0 : p < .5 ? 1 : p < .71 ? 2 : 3);
+    };
+    draw.resize = plan;
+    F.forEach(f => f.el.addEventListener('load', () => { SW = 0; }, { once: true }));
+    pinned(draw);
+  }
+  if (sec && scene && !photo) {
     const CX = 160, CW = 240, CH = 310, D = 80, ROW = CH / 4, FLOOR = CH;
     const panel = (css) => { const p = document.createElement('div'); p.className = 'pnl'; p.style.cssText = css; cab.appendChild(p); };
     panel(`left:0;top:0;width:${CW}px;height:${CH}px;transform:translateZ(-${D}px)`);
@@ -60,9 +123,6 @@
     });
 
     const T = [[.05, .26], [.31, .5], [.55, .7], [.76, .95]];               // scroll windows for the four moves
-    const clamp = v => Math.max(0, Math.min(1, v)), ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    const dots = $$('.dot', sec), steps = $$('.st', sec);
-    let lastStep = -1;
     const draw = p => {
       items.forEach(it => {
         let k = 0, t = 0;
@@ -74,34 +134,14 @@
         it.el.style.opacity = v[4];
       });
       scene.style.setProperty('--ry', (-20 + p * 16) + 'deg');
-      const step = T.reduce((n, w, i) => p >= w[0] - .02 ? i : n, 0);
-      if (step !== lastStep) {
-        lastStep = step; sec.dataset.step = step;
-        dots.forEach((d, i) => d.classList.toggle('on', i === step));
-        steps.forEach((s, i) => s.classList.toggle('on', i === step));
-      }
+      setStep(T.reduce((n, w, i) => p >= w[0] - .02 ? i : n, 0));
     };
     const fit = () => {
       const st = $('.stage', sec).getBoundingClientRect();
       scene.style.setProperty('--sc', Math.min(1.25, st.width / 560, st.height / 540).toFixed(3));
     };
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return; ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        const r = pin.getBoundingClientRect(), total = r.height - innerHeight;
-        draw(clamp(-r.top / total));
-      });
-    };
-    const setup = () => {
-      if (reduce.matches) { sec.classList.add('static'); fit(); draw(1); steps.forEach(s => s.classList.add('on')); removeEventListener('scroll', onScroll); return; }
-      sec.classList.remove('static'); fit(); onScroll(); addEventListener('scroll', onScroll, { passive: true });
-    };
-    addEventListener('resize', () => { fit(); onScroll(); });
-    reduce.addEventListener?.('change', setup);
-    setup();
+    draw.resize = fit; fit();
+    pinned(draw);
   }
 
   /* ---------- contact form: opens the visitor's mail app (mockup; production posts to SpiderPublish forms) ---------- */
@@ -118,7 +158,7 @@
   if (!box) return;
   const log = $('#hostLog'), form = $('#hostForm'), input = $('#hostIn');
   const open = () => { box.hidden = false; btn?.classList.add('away'); btn?.setAttribute('aria-expanded', 'true'); setTimeout(() => input.focus(), 50); };
-  const close = () => { box.hidden = true; btn?.classList.remove('away'); btn?.setAttribute('aria-expanded', 'false'); };
+  const close = () => { try { speechSynthesis.cancel(); } catch (e) {} box.hidden = true; btn?.classList.remove('away'); btn?.setAttribute('aria-expanded', 'false'); };
   btn?.addEventListener('click', open);
   $$('[data-open-host]').forEach(b => b.addEventListener('click', open));
   $('.host-x', box).addEventListener('click', close);
@@ -137,8 +177,39 @@
     });
     return bs >= .55 ? best.a : K.fallback;
   };
-  const say = (t, who) => { const p = document.createElement('p'); p.className = 'msg ' + who; p.textContent = t; log.appendChild(p); log.scrollTop = log.scrollHeight; };
-  const ask = q => { if (!q.trim()) return; say(q, 'me'); setTimeout(() => say(answer(q), 'bot'), 250); };
+  const say = (t, who) => { const p = document.createElement('p'); p.className = 'msg ' + who; p.textContent = t; log.appendChild(p); log.scrollTop = log.scrollHeight; return p; };
+
+  /* voice: the browser's own speech recognition (Chrome, Edge, Safari) in, speechSynthesis out, in the page language.
+     Nothing is recorded or sent anywhere by this page. Production: same flow, answers from an LLM grounded on the same KB. */
+  const LANG = box.dataset.lang, spkBtn = $('.host-spk', box), micBtn = $('.host-mic', box);
+  let speakOn = true; try { speakOn = localStorage.getItem('eo-speak') !== '0'; } catch (e) {}
+  const syncSpk = () => spkBtn.setAttribute('aria-pressed', speakOn);
+  syncSpk();
+  spkBtn.addEventListener('click', () => { speakOn = !speakOn; syncSpk(); if (!speakOn) speechSynthesis?.cancel(); try { localStorage.setItem('eo-speak', speakOn ? '1' : '0'); } catch (e) {} });
+  const pickVoice = () => { const vs = window.speechSynthesis?.getVoices() || [], l = LANG.slice(0, 2);
+    return vs.find(v => v.lang === LANG && /sara|natural|premium|enhanced/i.test(v.name)) || vs.find(v => v.lang === LANG) || vs.find(v => v.lang.startsWith(l)); };
+  const speak = t => { if (!speakOn || !window.speechSynthesis) return; speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t); u.lang = LANG; const v = pickVoice(); if (v) u.voice = v; u.rate = 1.02; speechSynthesis.speak(u); };
+  window.speechSynthesis?.addEventListener?.('voiceschanged', () => {});
+  const ask = (q, voice) => { if (!q.trim()) return; say(q, 'me'); setTimeout(() => { const a = answer(q); say(a, 'bot'); if (voice || speakOn) speak(a); }, 250); };
   form.addEventListener('submit', e => { e.preventDefault(); ask(input.value); input.value = ''; });
   $$('.chip', box).forEach(c => c.addEventListener('click', () => ask(c.textContent)));
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, listening = false;
+  const stopListen = () => { listening = false; box.classList.remove('listening'); input.placeholder = input.dataset.ph || input.placeholder; };
+  const listen = () => {
+    if (!SR) { say(box.dataset.noMic, 'bot'); return; }
+    if (listening) { rec?.stop(); return; }
+    speechSynthesis?.cancel();
+    rec = new SR(); rec.lang = LANG; rec.interimResults = true; rec.maxAlternatives = 1;
+    input.dataset.ph = input.dataset.ph || input.placeholder; input.placeholder = box.dataset.micOn; input.value = '';
+    listening = true; box.classList.add('listening');
+    rec.onresult = e => { const r = e.results[e.results.length - 1]; input.value = r[0].transcript; if (r.isFinal) { const q = input.value; input.value = ''; ask(q, true); } };
+    rec.onerror = e => { stopListen(); if (e.error === 'not-allowed' || e.error === 'service-not-allowed') say(box.dataset.noMic, 'bot'); };
+    rec.onend = stopListen;
+    try { rec.start(); } catch (e) { stopListen(); }
+  };
+  micBtn.addEventListener('click', listen);
+  $$('[data-voice]').forEach(b => b.addEventListener('click', () => setTimeout(listen, 200)));
 })();

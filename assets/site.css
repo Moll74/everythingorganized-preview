@@ -227,3 +227,34 @@ details p { color: var(--ink2); }
   .host { right: 8px; left: 8px; bottom: 8px; width: auto; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+
+/* method, photo mode: one cupboard photographed (or AI-labelled) in each step; scroll crossfades with the cupboard
+   held in place and a slow camera move (pull back to the floor, push in on what leaves, back to the finished cupboard) */
+.stage.photo { position: relative; align-self: center; height: auto; aspect-ratio: 4 / 3; max-height: calc(100svh - 120px); width: 100%;
+  border-radius: var(--r); overflow: hidden; background: var(--bg2); perspective: none; box-shadow: 0 30px 60px -30px rgba(0,0,0,.35); }
+.stage.photo .fr { position: absolute; left: 0; top: 0; max-width: none; width: auto; height: auto; transform-origin: 0 0; opacity: 0; will-change: transform, opacity; }
+.stage.photo .fr:first-child { opacity: 1; }
+.ai-tag { position: absolute; left: 12px; bottom: 12px; z-index: 3; font: 600 .72rem var(--sans); letter-spacing: .04em; color: #fff;
+  background: rgba(30, 24, 26, .62); backdrop-filter: blur(6px); padding: 5px 10px; border-radius: 99px; }
+.exits-row { position: absolute; right: 12px; top: 12px; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.exits-row .exit { position: static; transform: none; background: rgba(255, 253, 251, .9); color: #2b2627; border: 0; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+@media (max-width: 820px) {
+  .stage.photo { align-self: stretch; aspect-ratio: auto; height: 100%; max-height: none; border-radius: 0; margin-inline: calc(-1 * var(--pad)); width: calc(100% + 2 * var(--pad)); }
+  .sticky:has(.photo) { grid-template-rows: minmax(0, 1fr) auto; padding-top: 0; }
+}
+.static .stage.photo { height: auto; aspect-ratio: 4 / 3; }
+@media (min-width: 821px) { .sticky:has(.photo) { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); max-width: 1440px; gap: 48px; } }
+
+/* voice assistant */
+.host-btn { padding-left: 14px; } .host-btn svg { width: 18px; height: 18px; }
+.host-h { justify-content: flex-start; } .host-h strong { flex: 1; }
+.host-av { width: 32px; height: 32px; border-radius: 50%; background: var(--rose2); color: var(--ink); display: grid; place-items: center; font: 500 1.1rem var(--serif); flex: none; }
+.host-spk { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink2); display: grid; place-items: center; cursor: pointer; }
+.host-spk svg { width: 16px; fill: currentColor; } .host-spk[aria-pressed="true"] { color: var(--acc); border-color: var(--acc); }
+.host-mic { width: 44px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--acc); display: grid; place-items: center; cursor: pointer; }
+.host-mic svg { width: 20px; fill: currentColor; }
+.listening .host-mic { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); animation: eo-pulse 1.4s ease-in-out infinite; }
+@keyframes eo-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc) 45%, transparent); } 50% { box-shadow: 0 0 0 9px transparent; } }
+.bar button { display: flex !important; align-items: center; justify-content: center; gap: 5px; } .bar button svg { width: 16px; fill: currentColor; flex: none; }
+@media (max-width: 820px) { .bar { grid-template-columns: .8fr 1.25fr 1.2fr; } .bar a, .bar button { white-space: nowrap; font-size: .88rem; } }
+.contact-t { min-width: 0; } .contact dd, .foot p { overflow-wrap: anywhere; }
