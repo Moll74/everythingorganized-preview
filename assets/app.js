@@ -51,16 +51,21 @@
      and the subject width w, so one camera can be expressed in any frame's pixels: the subject stays put while frames crossfade.
      intro = open on the finished state (frame 3), then mess -> emptied -> sorted -> finished. */
   const photoScene = (el, onP) => {
-    const F = $$('.fr', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
+    const F = $$('.fr:not(.ap)', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
+    const apEl = $('.fr.ap', el), AP = apEl && { el: apEl, ax: +apEl.dataset.ax, ay: +apEl.dataset.ay, w: +apEl.dataset.w, iw: +apEl.dataset.iw, ih: +apEl.dataset.ih };
+    const A0 = AP ? .24 : 0;                                          // share of the scroll used to move into the room
     const intro = el.dataset.intro === '1';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
-    let SW = 0, SH = 0, cover = 1, SEG = [];
+    let SW = 0, SH = 0, cover = 1, SEG = [], CAM = null;
     const shift = +(el.dataset.shift || 0), whole = el.dataset.fit === 'whole';
+    const [, VY, , VH] = el.dataset.view ? el.dataset.view.split(',').map(Number) : [0, 0, 0, +el.dataset.h];   // the close framing inside a bigger photo
     /* whole = show the entire subject (a full-screen hero): wide screens fit the photo's height and put the subject right of
        centre; narrow screens fit the subject's width at the top. A blurred copy fills the rest (CSS .hv-bg). */
     const natural = (i, push = 1) => {
-      if (whole) { const wide = SW / SH > 1.15, k = (wide ? SH / IH : Math.min(SH / IH, SW / (F[i].w * 1.3))) * push;
-        return { i, k, x: wide ? SW * (.5 + shift) - F[i].ax * k : SW / 2 - F[i].ax * k, y: wide ? (SH - IH * k) / 2 : Math.max(0, (SH * .52 - IH * k) / 2) }; }
+      if (whole && !(SW / SH > 1.15) && el.querySelector('.fr.ap')) {   // phone hero: the room photo covers the stage, centred on the subject
+        const k = Math.max(SW / IW, SH / IH) * 1.06 * push; return { i, k, x: SW / 2 - F[i].ax * k, y: (SH - IH * k) / 2 }; }
+      if (whole) { const wide = SW / SH > 1.15, k = (wide ? SH / VH : Math.min(SH / VH, SW / (F[i].w * 1.62))) * push;
+        return { i, k, x: wide ? SW * (.5 + shift) - F[i].ax * k : SW / 2 - F[i].ax * k, y: (wide ? (SH - VH * k) / 2 : Math.max(0, (SH * .52 - VH * k) / 2)) - VY * k }; }
       const k = cover * push; return { i, k, x: (SW - IW * k) / 2, y: (SH - IH * k) / 2 }; };
     const focus = (i, px, py, z) => { const k = cover * z; return whole ? { i, k, x: SW * (SW / SH > 1.15 ? .7 : .55) - px * k, y: SH * (SW / SH > 1.15 ? .6 : .3) - py * k } : { i, k, x: SW * .62 - px * k, y: SH * .62 - py * k }; };
     const toFrame = (c, j) => { if (c.i === j) return c; const a = F[c.i], b = F[j], k = c.k * a.w / b.w;
@@ -76,6 +81,7 @@
       let k = n0.k;
       if (!whole) k = Math.max(k, ...F.map(f => cover * f.w / F[R].w));
       const C = { i: R, k, x: F[R].ax * n0.k + n0.x - F[R].ax * k, y: F[R].ay * n0.k + n0.y - F[R].ay * k };
+      CAM = C;
       const c = i => toFrame(C, i), hold = (a, b, i) => [a, b, c(i), c(i)], fade = (a, b, i, j) => [a, b, c(i), c(j), 1];
       /* long, even crossfades (about a screen of scrolling each), short rests on each picture */
       SEG = intro
@@ -85,8 +91,28 @@
            fade(.68, .92, 2, 3), hold(.92, 1.01, 3)];
     };
     const place = (f, c, o) => { const q = fit(c); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`; f.el.style.opacity = o; };
+    /* the approach: from the wide room shot (covering the stage, subject a bit right of centre on wide screens) to the camera
+       where its subject matches the locked close-up exactly, then a crossfade into that close-up */
+    const apDraw = p => {
+      const R = F.length - 1, kA = CAM.k * F[R].w / AP.w;
+      const end = { k: kA, x: F[R].ax * CAM.k + CAM.x - AP.ax * kA, y: F[R].ay * CAM.k + CAM.y - AP.ay * kA };
+      /* walking towards it: start with the whole room covering the stage, end at the locked close view. Zoom is
+         exponential (constant speed through the room) and the subject's screen point follows the same eased curve. */
+      const fx = AP.ax * end.k + end.x, fy = AP.ay * end.k + end.y;
+      const kS = Math.max(SW / AP.iw, SH / AP.ih) * 1.001, xS = (SW - AP.iw * kS) / 2, yS = (SH - AP.ih * kS) / 2;
+      const sx0 = xS + AP.ax * kS, sy0 = yS + AP.ay * kS;
+      const u = clamp((p - .03) / (.82 - .03)), t = (1 - Math.cos(Math.PI * u)) / 2, fadeT = clamp((p - .82) / .18);
+      const k = Math.exp(Math.log(kS) + (Math.log(end.k) - Math.log(kS)) * t);
+      const cx = (v, room) => Math.min(0, Math.max(room, v));                  // never show an edge of the room photo
+      const x = cx(sx0 + (fx - sx0) * t - AP.ax * k, SW - AP.iw * k), y = cx(sy0 + (fy - sy0) * t - AP.ay * k, SH - AP.ih * k);
+      AP.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) scale(${k.toFixed(4)})`;
+      AP.el.style.opacity = 1; AP.el.style.zIndex = 2;
+      F.forEach((f, j) => { if (j === R) { const q = fit(CAM); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`;
+        f.el.style.opacity = fadeT * fadeT * (3 - 2 * fadeT); f.el.style.zIndex = 3; } else f.el.style.opacity = 0; });
+    };
     const draw = p => {
       if (!SW) plan();
+      if (AP) { if (p < A0) { apDraw(p / A0); el.dataset.sorting = 0; onP(-1, intro); return; } AP.el.style.opacity = 0; p = (p - A0) / (1 - A0); }
       const s = SEG.find(g => p < g[1]) || SEG[SEG.length - 1], u = clamp((p - s[0]) / (s[1] - s[0])), t = u * u * (3 - 2 * u);
       const A = s[2], B = s[3], cam = mix(toFrame(A, B.i), B, t);
       F.forEach((f, j) => { if (j === B.i) place(f, cam, s[4] ? t : 1); else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1); else f.el.style.opacity = 0; });
@@ -108,9 +134,9 @@
     const labels = JSON.parse(hph.dataset.labels), chipH = $('.hv-chip', hph), bar = $('.hv-bar i', hph), hint = $('.hhint');
     let label = '';
     const draw = photoScene(hph, (p, intro) => {
-      const st = stepOf(p, intro), l = st === -1 ? labels[0] : st === -.5 ? labels[1] : labels[2 + st];
+      const st = p < 0 ? -1 : stepOf(p, intro), l = st === -1 ? labels[0] : st === -.5 ? labels[1] : labels[2 + st];
       if (l !== label) { label = l; chipH.textContent = l; chipH.classList.remove('pop'); void chipH.offsetWidth; chipH.classList.add('pop'); chipH.classList.toggle('after', st === -1 || st === 3); }
-      bar.style.transform = `scaleX(${p.toFixed(3)})`;
+      bar.style.transform = `scaleX(${Math.max(0, p).toFixed(3)})`;
       if (hint) hint.style.opacity = p > .04 ? 0 : 1;
     });
     bindPin(hpin, draw, () => hpin.classList.add('static'));
@@ -181,7 +207,7 @@
 
   /* ---------- video cards: poster + play button; one plays at a time, muted until the viewer turns sound on ---------- */
   const vids = $$('.vcard video');
-  $$('.vcard').forEach(c => {
+  $$('.vcard:not(.vslot)').forEach(c => {
     const v = $('video', c), b = $('.vplay', c);
     b.addEventListener('click', () => { vids.forEach(o => { if (o !== v) o.pause(); }); v.controls = true; c.classList.add('playing'); v.play().catch(() => {}); });
     v.addEventListener('pause', () => c.classList.toggle('playing', !v.ended && v.currentTime > 0 && !v.paused));

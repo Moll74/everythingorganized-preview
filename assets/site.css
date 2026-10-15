@@ -287,7 +287,7 @@ details p { color: var(--ink2); }
 }
 
 /* hero: one picture scrubbed by scroll */
-.hpin { height: 720vh; position: relative; }
+.hpin { height: 1500vh; position: relative; }
 .hsticky { position: sticky; top: 64px; height: calc(100svh - 64px); max-width: var(--max); margin: 0 auto; padding: 0 var(--pad);
   display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(28px, 5vw, 70px); align-items: center; }
 .hhint { font-size: .85rem; color: var(--ink2); margin-top: 26px; transition: opacity .4s; }
@@ -387,10 +387,6 @@ details p { color: var(--ink2); }
 
 /* whole-subject hero: blurred fill behind, the photo's edges fade into it */
 .hv-bg { position: absolute; inset: -40px; z-index: 0; background-size: cover; background-position: center; filter: blur(34px) saturate(.9) brightness(.82); transform: scale(1.1); }
-.photo-hero[data-fit="whole"] .fr { z-index: 1;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, #000 90%, transparent 100%);
-  -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, #000 90%, transparent 100%); mask-composite: intersect; }
-@media (min-width: 821px) { .photo-hero[data-fit="whole"] .fr { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 96%, transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 96%, transparent 100%); } }
 
 /* one sticky block for ribbon + header; pinned scenes start right below it, so nothing slides when scrolling starts */
 .topwrap { position: sticky; top: 0; z-index: 40; }
@@ -399,3 +395,27 @@ details p { color: var(--ink2); }
 .sticky { top: var(--hh, 90px); height: calc(100svh - var(--hh, 90px)); }
 @media (max-width: 820px) { .hsticky, .hero-scroll .hsticky { top: var(--hh, 80px); height: calc(100svh - var(--hh, 80px)); } }
 .nav { scroll-margin-top: var(--hh); } html { scroll-padding-top: calc(var(--hh, 90px) + 16px); }
+
+.photo-hero .fr, .photo-hero .fr.ap { -webkit-mask-image: none !important; mask-image: none !important; }
+.photo-hero .fr.ap { opacity: 1; z-index: 2; }
+.photo-hero .fr.ap ~ .fr:last-of-type { opacity: 0; }
+
+/* video rows per platform + reserved slots */
+.vrow-h { font-size: 1.5rem; margin: 26px auto 14px; }
+.vslot .vbox { display: grid; place-content: center; justify-items: center; gap: 10px; background: var(--rose); border: 1.5px dashed var(--rose2); box-shadow: none; color: var(--acc); font-weight: 600; font-size: .9rem; }
+.vslot .vbox svg { width: 34px; height: 34px; fill: currentColor; }
+.btn-tt { gap: 8px; }
+
+/* weekly inspiration */
+.news { padding-block: clamp(50px, 8vw, 90px); background: var(--bg2); }
+.ngrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 10px; }
+.ncard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; display: flex; flex-direction: column; }
+.nimg { position: relative; aspect-ratio: 16 / 9; background: var(--bg2); }
+.nimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nb { position: absolute; top: 12px; font: 700 .7rem var(--sans); letter-spacing: .14em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; }
+.nb-l { left: 12px; background: rgba(30, 24, 26, .7); color: #fff; } .nb-r { left: calc(50% + 12px); background: var(--acc); color: var(--acc-ink); }
+.nbody { padding: 20px 22px 22px; } .ntag { font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; color: var(--acc); font-weight: 600; margin-bottom: .5em; }
+.nbody h3 { font-size: 1.6rem; margin-bottom: .35em; } .nbody p { color: var(--ink2); font-size: .97rem; }
+.nsrc { font-size: .88rem; font-weight: 600; color: var(--acc); }
+.nnote { margin-top: 16px; }
+@media (max-width: 820px) { .ngrid { grid-template-columns: minmax(0, 1fr); } }
