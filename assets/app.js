@@ -5,6 +5,10 @@
 (() => {
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
+  /* the sticky top (ribbon + header) height, so pinned scenes sit exactly below it and never shift */
+  const tw = $('#topwrap'), setHH = () => document.documentElement.style.setProperty('--hh', (tw ? tw.offsetHeight : 64) + 'px');
+  setHH(); addEventListener('resize', setHH);
+
   /* menu + theme */
   const burger = $('.burger'), nav = $('#nav');
   burger?.addEventListener('click', () => { const o = nav.classList.toggle('open'); burger.setAttribute('aria-expanded', o); });
@@ -25,9 +29,14 @@
     dots.forEach((d, i) => d.classList.toggle('on', i === step)); steps.forEach((s, i) => s.classList.toggle('on', i === step)); };
   /* progress 0..1 of a tall pinned block -> draw(p); reduced motion: the end state, no pin */
   const bindPin = (pinEl, draw, onStatic) => {
-    let ticking = false;
-    const onScroll = () => { if (ticking) return; ticking = true;
-      requestAnimationFrame(() => { ticking = false; const r = pinEl.getBoundingClientRect(); draw(clamp(-r.top / (r.height - innerHeight))); }); };
+    /* the picture glides after the scroll position (eases ~10% of the way per frame) instead of jumping with every flick */
+    let cur = -1, target = 0, running = false;
+    const frame = () => {
+      const d = target - cur; cur = Math.abs(d) < .0004 ? target : cur + d * .1; draw(cur);
+      running = cur !== target; if (running) requestAnimationFrame(frame);
+    };
+    const onScroll = () => { const r = pinEl.getBoundingClientRect(); target = clamp(-r.top / (r.height - innerHeight));
+      if (cur < 0) { cur = target; draw(cur); return; } if (!running) { running = true; requestAnimationFrame(frame); } };
     const setup = () => {
       if (reduce.matches) { onStatic?.(); draw(1); removeEventListener('scroll', onScroll); return; }
       pinEl.classList.remove('static'); onScroll(); addEventListener('scroll', onScroll, { passive: true });
@@ -46,31 +55,43 @@
     const intro = el.dataset.intro === '1';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
     let SW = 0, SH = 0, cover = 1, SEG = [];
-    const natural = (i, push = 1) => { const k = cover * push; return { i, k, x: (SW - IW * k) / 2, y: (SH - IH * k) / 2 }; };
-    const focus = (i, px, py, z) => { const k = cover * z; return { i, k, x: SW * .62 - px * k, y: SH * .62 - py * k }; };
+    const shift = +(el.dataset.shift || 0), whole = el.dataset.fit === 'whole';
+    /* whole = show the entire subject (a full-screen hero): wide screens fit the photo's height and put the subject right of
+       centre; narrow screens fit the subject's width at the top. A blurred copy fills the rest (CSS .hv-bg). */
+    const natural = (i, push = 1) => {
+      if (whole) { const wide = SW / SH > 1.15, k = (wide ? SH / IH : Math.min(SH / IH, SW / (F[i].w * 1.3))) * push;
+        return { i, k, x: wide ? SW * (.5 + shift) - F[i].ax * k : SW / 2 - F[i].ax * k, y: wide ? (SH - IH * k) / 2 : Math.max(0, (SH * .52 - IH * k) / 2) }; }
+      const k = cover * push; return { i, k, x: (SW - IW * k) / 2, y: (SH - IH * k) / 2 }; };
+    const focus = (i, px, py, z) => { const k = cover * z; return whole ? { i, k, x: SW * (SW / SH > 1.15 ? .7 : .55) - px * k, y: SH * (SW / SH > 1.15 ? .6 : .3) - py * k } : { i, k, x: SW * .62 - px * k, y: SH * .62 - py * k }; };
     const toFrame = (c, j) => { if (c.i === j) return c; const a = F[c.i], b = F[j], k = c.k * a.w / b.w;
       return { i: j, k, x: a.ax * c.k + c.x - b.ax * k, y: a.ay * c.k + c.y - b.ay * k }; };
-    const fit = c => { const k = Math.max(c.k, cover), x = Math.min(0, Math.max(SW - IW * k, c.x + (IW * (c.k - k)) / 2)), y = Math.min(0, Math.max(SH - IH * k, c.y + (IH * (c.k - k)) / 2)); return { ...c, k, x, y }; };
+    const fit = c => { if (whole) return c; const k = Math.max(c.k, cover), x = Math.min(0, Math.max(SW - IW * k, c.x + (IW * (c.k - k)) / 2)), y = Math.min(0, Math.max(SH - IH * k, c.y + (IH * (c.k - k)) / 2)); return { ...c, k, x, y }; };
     const mix = (a, b, t) => ({ i: b.i, k: Math.exp(Math.log(a.k) + (Math.log(b.k) - Math.log(a.k)) * t), x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    /* one fixed camera for the whole scene: the subject never moves or zooms, only what is in it changes.
+       It is the finished frame's framing, zoomed just enough that every other frame (scaled to the same subject size)
+       still covers the stage; each frame is then shown through that same camera. */
     const plan = () => {
       const r = el.getBoundingClientRect(); SW = r.width; SH = r.height; cover = Math.max(SW / IW, SH / IH);
-      const n = i => natural(i), np = i => natural(i, 1.06), F_ = focus(2, sx, sy, sz), F2 = focus(2, sx, sy, sz * 1.04);
-      SEG = intro ? [
-        [0, .06, n(3), np(3)], [.06, .16, np(3), n(0), 1], [.16, .2, n(0), np(0)], [.2, .34, np(0), n(1), 1], [.34, .39, n(1), np(1)],
-        [.39, .53, np(1), n(2), 1], [.53, .56, n(2), np(2)], [.56, .68, np(2), F_], [.68, .73, F_, F2], [.73, .9, F2, n(3), 1], [.9, 1.01, n(3), np(3)]]
-      : [                                                            // [from p, to p, camera A, camera B, crossfade?]
-        [0, .06, n(0), np(0)], [.06, .24, np(0), n(1), 1], [.24, .3, n(1), np(1)],
-        [.3, .48, np(1), n(2), 1], [.48, .52, n(2), np(2)], [.52, .66, np(2), F_], [.66, .72, F_, F2],
-        [.72, .92, F2, n(3), 1], [.92, 1.01, n(3), np(3)]];
+      const R = F.length - 1, n0 = natural(R);
+      let k = n0.k;
+      if (!whole) k = Math.max(k, ...F.map(f => cover * f.w / F[R].w));
+      const C = { i: R, k, x: F[R].ax * n0.k + n0.x - F[R].ax * k, y: F[R].ay * n0.k + n0.y - F[R].ay * k };
+      const c = i => toFrame(C, i), hold = (a, b, i) => [a, b, c(i), c(i)], fade = (a, b, i, j) => [a, b, c(i), c(j), 1];
+      /* long, even crossfades (about a screen of scrolling each), short rests on each picture */
+      SEG = intro
+        ? [hold(0, .05, 3), fade(.05, .21, 3, 0), hold(.21, .26, 0), fade(.26, .44, 0, 1), hold(.44, .48, 1),
+           fade(.48, .62, 1, 2), hold(.62, .74, 2), fade(.74, .94, 2, 3), hold(.94, 1.01, 3)]
+        : [hold(0, .05, 0), fade(.05, .27, 0, 1), hold(.27, .31, 1), fade(.31, .52, 1, 2), hold(.52, .68, 2),
+           fade(.68, .92, 2, 3), hold(.92, 1.01, 3)];
     };
     const place = (f, c, o) => { const q = fit(c); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`; f.el.style.opacity = o; };
     const draw = p => {
       if (!SW) plan();
-      const s = SEG.find(g => p < g[1]) || SEG[SEG.length - 1], t = ease(clamp((p - s[0]) / (s[1] - s[0])));
+      const s = SEG.find(g => p < g[1]) || SEG[SEG.length - 1], u = clamp((p - s[0]) / (s[1] - s[0])), t = u * u * (3 - 2 * u);
       const A = s[2], B = s[3], cam = mix(toFrame(A, B.i), B, t);
       F.forEach((f, j) => { if (j === B.i) place(f, cam, s[4] ? t : 1); else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1); else f.el.style.opacity = 0; });
       F[B.i].el.style.zIndex = 2; if (s[4]) F[A.i].el.style.zIndex = 1;
-      el.dataset.sorting = intro ? +(p >= .54 && p < .73) : +(p >= .5 && p < .72);
+      el.dataset.sorting = intro ? +(p >= .6 && p < .77) : +(p >= .5 && p < .71);
       onP(p, intro);
     };
     draw.resize = plan;
@@ -78,7 +99,7 @@
     return draw;
   };
   /* which of the four steps a progress value belongs to (-1 = the opening "result" shot, -0.5 = the mess before step 1) */
-  const stepOf = (p, intro) => intro ? (p < .11 ? -1 : p < .2 ? -.5 : p < .37 ? 0 : p < .54 ? 1 : p < .72 ? 2 : 3) : (p < .27 ? 0 : p < .5 ? 1 : p < .71 ? 2 : 3);
+  const stepOf = (p, intro) => intro ? (p < .12 ? -1 : p < .25 ? -.5 : p < .47 ? 0 : p < .61 ? 1 : p < .75 ? 2 : 3) : (p < .29 ? 0 : p < .51 ? 1 : p < .69 ? 2 : 3);
 
   if (sec && photo) pinned(photoScene(photo, (p, intro) => setStep(Math.max(0, stepOf(p, intro)))));
 
@@ -166,6 +187,24 @@
     v.addEventListener('pause', () => c.classList.toggle('playing', !v.ended && v.currentTime > 0 && !v.paused));
     v.addEventListener('ended', () => { c.classList.remove('playing'); v.controls = false; });
   });
+
+  /* ---------- cookie consent: stored for 12 months; optional categories stay off until accepted.
+     Future optional scripts read window.eoConsent or listen for the 'eo-consent' event before they load. ---------- */
+  const cc = $('#cc');
+  if (cc) {
+    const KEY = 'eo-consent', YEAR = 365 * 864e5, set = $('.cc-set', cc), save = $('.cc-save', cc);
+    const read = () => { try { const c = JSON.parse(localStorage.getItem(KEY)); return c && Date.now() - c.ts < YEAR ? c : null; } catch (e) { return null; } };
+    const apply = c => { window.eoConsent = c; document.dispatchEvent(new CustomEvent('eo-consent', { detail: c })); };
+    const store = c => { c = { v: 1, stats: !!c.stats, marketing: !!c.marketing, ts: Date.now() }; try { localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} apply(c); cc.hidden = true; };
+    const open = withSettings => { const c = read() || {}; $$('input', set).forEach(i => { i.checked = !!c[i.name]; });
+      set.hidden = !withSettings; save.hidden = !withSettings; cc.hidden = false; $('button', cc).focus(); };
+    cc.addEventListener('click', e => { const a = e.target.closest('[data-cc]')?.dataset.cc; if (!a) return;
+      if (a === 'reject') store({}); else if (a === 'accept') store({ stats: true, marketing: true });
+      else if (a === 'settings') { set.hidden = false; save.hidden = false; }
+      else if (a === 'save') store(Object.fromEntries($$('input', set).map(i => [i.name, i.checked]))); });
+    $$('[data-consent-open]').forEach(b => b.addEventListener('click', () => open(true)));
+    const c = read(); if (c) apply(c); else setTimeout(() => { cc.hidden = false; }, 600);
+  }
 
   /* ---------- contact form: opens the visitor's mail app (mockup; production posts to SpiderPublish forms) ---------- */
   const f = $('#cform');

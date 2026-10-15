@@ -89,7 +89,7 @@ p { margin: 0 0 1em; }
 /* method: pinned 3D scroll */
 .method { background: var(--bg2); padding-top: clamp(60px, 8vw, 100px); }
 .method-head { margin-bottom: 10px; }
-.pin { height: 460vh; position: relative; }
+.pin { height: 900vh; position: relative; }
 .sticky { position: sticky; top: 64px; height: calc(100svh - 64px); display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); gap: 30px; overflow: hidden; }
 .stage { height: 100%; min-width: 0; min-height: 0; overflow: hidden; position: relative; perspective: 1400px; perspective-origin: 50% 30%; }
 .scene { position: absolute; left: 50%; top: 50%; margin: -260px 0 0 -280px; width: 560px; height: 520px; transform-style: preserve-3d; transform: scale(var(--sc, 1)) rotateX(-10deg) rotateY(var(--ry, -16deg)); }
@@ -230,7 +230,7 @@ details p { color: var(--ink2); }
 
 /* method, photo mode: one cupboard photographed (or AI-labelled) in each step; scroll crossfades with the cupboard
    held in place and a slow camera move (pull back to the floor, push in on what leaves, back to the finished cupboard) */
-.stage.photo { position: relative; align-self: center; height: auto; aspect-ratio: 4 / 3; max-height: calc(100svh - 120px); width: 100%;
+.stage.photo { position: relative; align-self: center; height: auto; aspect-ratio: 1 / 1; max-height: calc(100svh - 120px); width: 100%;
   border-radius: var(--r); overflow: hidden; background: var(--bg2); perspective: none; box-shadow: 0 30px 60px -30px rgba(0,0,0,.35); }
 .stage.photo .fr { position: absolute; left: 0; top: 0; max-width: none; width: auto; height: auto; transform-origin: 0 0; opacity: 0; will-change: transform, opacity; }
 .stage.photo .fr:first-child { opacity: 1; }
@@ -242,7 +242,7 @@ details p { color: var(--ink2); }
   .stage.photo { align-self: stretch; aspect-ratio: auto; height: 100%; max-height: none; border-radius: 0; margin-inline: calc(-1 * var(--pad)); width: calc(100% + 2 * var(--pad)); }
   .sticky:has(.photo) { grid-template-rows: minmax(0, 1fr) auto; padding-top: 0; }
 }
-.static .stage.photo { height: auto; aspect-ratio: 4 / 3; }
+.static .stage.photo { height: auto; aspect-ratio: 1 / 1; }
 @media (min-width: 821px) { .sticky:has(.photo) { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); max-width: 1440px; gap: 48px; } }
 
 /* voice assistant */
@@ -287,7 +287,7 @@ details p { color: var(--ink2); }
 }
 
 /* hero: one picture scrubbed by scroll */
-.hpin { height: 260vh; position: relative; }
+.hpin { height: 720vh; position: relative; }
 .hsticky { position: sticky; top: 64px; height: calc(100svh - 64px); max-width: var(--max); margin: 0 auto; padding: 0 var(--pad);
   display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(28px, 5vw, 70px); align-items: center; }
 .hhint { font-size: .85rem; color: var(--ink2); margin-top: 26px; transition: opacity .4s; }
@@ -350,3 +350,52 @@ details p { color: var(--ink2); }
 @media (max-width: 520px) { .mcards { grid-template-columns: minmax(0, 1fr); } }
 .vfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 26px; } .vfoot .vnote { margin: 0; }
 @media (min-width: 600px) and (max-width: 900px) { .vgrid { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; } }
+
+/* cookie consent + legal pages */
+.cc { position: fixed; left: 20px; bottom: 20px; z-index: 70; width: min(440px, calc(100vw - 32px)); background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 20px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.22); }
+.cc[hidden] { display: none; }
+.cc-h { font: 500 1.35rem var(--serif); margin: 0 0 .3em; } .cc-t { font-size: .92rem; color: var(--ink2); margin-bottom: 14px; } .cc-t a { color: var(--acc); font-weight: 600; }
+.cc-b { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .cc-b .btn { min-height: 44px; font-size: .92rem; padding: 0 12px; }
+.cc-set { display: grid; gap: 8px; margin-bottom: 14px; } .cc-set[hidden], .cc-save[hidden] { display: none; }
+.cc-cat { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.cc-cat span { display: grid; } .cc-cat small { color: var(--ink2); font-size: .8rem; } .cc-cat em { font-style: normal; font-size: .78rem; color: var(--acc); font-weight: 600; white-space: nowrap; }
+.cc-cat input { width: 22px; height: 22px; accent-color: var(--acc); flex: none; }
+@media (max-width: 820px) { .cc { left: 8px; right: 8px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom)); } }
+.foot-base a, .linkish { color: var(--ink2); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.legal { max-width: 760px; padding-block: 10px 70px; } .legal h2 { font-size: 1.8rem; margin-top: 1.4em; } .legal p, .legal li { color: var(--ink2); }
+.legal a { color: var(--acc); } .facts-list { padding-left: 1.1em; }
+.tbl { overflow-x: auto; margin: 10px 0 18px; } .tbl table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.tbl th, .tbl td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; } .tbl code { font-size: .85rem; }
+
+/* full-screen hero: the photo fills the screen, the text sits on it (desktop as well as phone) */
+.hero-scroll .hsticky { max-width: none; padding: 0; display: block; overflow: hidden; }
+.hero-scroll .hero-v.photo-hero { position: absolute; inset: 0; width: auto; height: auto; aspect-ratio: auto; justify-self: stretch; border-radius: 0; box-shadow: none; transform: none; }
+.hero-scroll .hero-t { position: absolute; z-index: 4; color: #fff; }
+.hero-scroll .hero-t .eyebrow { color: #f3c6d7; } .hero-scroll .hero-t h1 em { color: #f3c6d7; } .hero-scroll .hero-t .lead { color: rgba(255,255,255,.9); }
+.hero-scroll .hero-t .btn-g { color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.65); }
+.hero-scroll .hhint { color: rgba(255,255,255,.8); }
+@media (min-width: 821px) {
+  .hero-scroll .hero-t { left: 0; top: 0; bottom: 0; width: min(56%, 760px); display: flex; flex-direction: column; justify-content: center;
+    padding: 0 clamp(40px, 6vw, 96px); background: linear-gradient(to right, rgba(20, 14, 16, .78) 0%, rgba(20, 14, 16, .55) 62%, transparent 100%); }
+  .hero-scroll .hero-t h1 { font-size: clamp(3rem, 5.4vw, 5.2rem); text-shadow: 0 2px 30px rgba(0,0,0,.25); }
+  .hero-scroll .hero-t .lead { max-width: 30em; }
+  .hero-scroll .hv-chip { left: auto; right: 28px; top: 24px; }
+  .hero-scroll .photo-hero .exits-row { top: 72px; right: 28px; }
+  .hero-scroll .photo-hero .hv-bar { left: auto; right: 28px; width: min(38%, 520px); bottom: 26px; }
+}
+
+/* whole-subject hero: blurred fill behind, the photo's edges fade into it */
+.hv-bg { position: absolute; inset: -40px; z-index: 0; background-size: cover; background-position: center; filter: blur(34px) saturate(.9) brightness(.82); transform: scale(1.1); }
+.photo-hero[data-fit="whole"] .fr { z-index: 1;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, #000 90%, transparent 100%);
+  -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, #000 90%, transparent 100%); mask-composite: intersect; }
+@media (min-width: 821px) { .photo-hero[data-fit="whole"] .fr { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 96%, transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 96%, transparent 100%); } }
+
+/* one sticky block for ribbon + header; pinned scenes start right below it, so nothing slides when scrolling starts */
+.topwrap { position: sticky; top: 0; z-index: 40; }
+.topwrap .top { position: relative; top: auto; }
+.hsticky, .hero-scroll .hsticky { top: var(--hh, 90px); height: calc(100svh - var(--hh, 90px)); }
+.sticky { top: var(--hh, 90px); height: calc(100svh - var(--hh, 90px)); }
+@media (max-width: 820px) { .hsticky, .hero-scroll .hsticky { top: var(--hh, 80px); height: calc(100svh - var(--hh, 80px)); } }
+.nav { scroll-margin-top: var(--hh); } html { scroll-padding-top: calc(var(--hh, 90px) + 16px); }
