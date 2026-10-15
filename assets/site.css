@@ -287,7 +287,7 @@ details p { color: var(--ink2); }
 }
 
 /* hero: one picture scrubbed by scroll */
-.hpin { height: 1500vh; position: relative; }
+.hpin { height: 1700vh; position: relative; }
 .hsticky { position: sticky; top: 64px; height: calc(100svh - 64px); max-width: var(--max); margin: 0 auto; padding: 0 var(--pad);
   display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(28px, 5vw, 70px); align-items: center; }
 .hhint { font-size: .85rem; color: var(--ink2); margin-top: 26px; transition: opacity .4s; }

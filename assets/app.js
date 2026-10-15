@@ -53,7 +53,7 @@
   const photoScene = (el, onP) => {
     const F = $$('.fr:not(.ap)', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
     const apEl = $('.fr.ap', el), AP = apEl && { el: apEl, ax: +apEl.dataset.ax, ay: +apEl.dataset.ay, w: +apEl.dataset.w, iw: +apEl.dataset.iw, ih: +apEl.dataset.ih };
-    const A0 = AP ? .24 : 0;                                          // share of the scroll used to move into the room
+    const A0 = AP ? .3 : 0;                                          // share of the scroll used to move into the room
     const intro = el.dataset.intro === '1';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
     let SW = 0, SH = 0, cover = 1, SEG = [], CAM = null;
@@ -101,7 +101,7 @@
       const fx = AP.ax * end.k + end.x, fy = AP.ay * end.k + end.y;
       const kS = Math.max(SW / AP.iw, SH / AP.ih) * 1.001, xS = (SW - AP.iw * kS) / 2, yS = (SH - AP.ih * kS) / 2;
       const sx0 = xS + AP.ax * kS, sy0 = yS + AP.ay * kS;
-      const u = clamp((p - .03) / (.82 - .03)), t = (1 - Math.cos(Math.PI * u)) / 2, fadeT = clamp((p - .82) / .18);
+      const u = clamp((p - .1) / (.88 - .1)), t = (1 - Math.cos(Math.PI * u)) / 2, fadeT = clamp((p - .88) / .12);   // a calm moment on the whole room first
       const k = Math.exp(Math.log(kS) + (Math.log(end.k) - Math.log(kS)) * t);
       const cx = (v, room) => Math.min(0, Math.max(room, v));                  // never show an edge of the room photo
       const x = cx(sx0 + (fx - sx0) * t - AP.ax * k, SW - AP.iw * k), y = cx(sy0 + (fy - sy0) * t - AP.ay * k, SH - AP.ih * k);
