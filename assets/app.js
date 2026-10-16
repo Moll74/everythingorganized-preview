@@ -13,6 +13,10 @@
   const burger = $('.burger'), nav = $('#nav');
   burger?.addEventListener('click', () => { const o = nav.classList.toggle('open'); burger.setAttribute('aria-expanded', o); });
   nav?.addEventListener('click', e => { if (e.target.closest('a')) { nav.classList.remove('open'); burger?.setAttribute('aria-expanded', 'false'); } });
+  /* a link to a FAQ question (from the assistant's search hits) opens it */
+  const openHash = () => { const t = location.hash && document.getElementById(location.hash.slice(1)); if (t?.tagName === 'SUMMARY') t.parentElement.open = true; };
+  addEventListener('hashchange', openHash); openHash();
+
   $('.theme-t')?.addEventListener('click', () => {
     const root = document.documentElement, cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
@@ -50,10 +54,17 @@
   /* photo scene: camera = {k, x, y}: image pixel p shows at screen p*k + (x, y). Every frame has an anchor (a subject point)
      and the subject width w, so one camera can be expressed in any frame's pixels: the subject stays put while frames crossfade.
      intro = open on the finished state (frame 3), then mess -> emptied -> sorted -> finished. */
+  /* the step buttons (1-4) jump to a step without scrolling by hand: they glide the page to that step's resting point,
+     so the scene still plays through on the way. Points are shares of the scene (after the walk-in), messy-first order. */
+  const AP_SHARE = .18, STEP_AT = [.28, .5, .62, .97];
+  const jumpTo = (pinEl, i, a0) => {
+    const p = a0 + (1 - a0) * STEP_AT[i], top = scrollY + pinEl.getBoundingClientRect().top + p * (pinEl.offsetHeight - innerHeight);
+    scrollTo({ top, behavior: reduce.matches ? 'auto' : 'smooth' });
+  };
   const photoScene = (el, onP) => {
     const F = $$('.fr:not(.ap)', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
     const apEl = $('.fr.ap', el), AP = apEl && { el: apEl, ax: +apEl.dataset.ax, ay: +apEl.dataset.ay, w: +apEl.dataset.w, iw: +apEl.dataset.iw, ih: +apEl.dataset.ih };
-    const A0 = AP ? .2 : 0;                                          // share of the scroll used to move into the room
+    const A0 = AP ? AP_SHARE : 0;                                    // share of the scroll used to move into the room
     const intro = el.dataset.intro === '1';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
     let SW = 0, SH = 0, cover = 1, SEG = [], CAM = null;
@@ -94,7 +105,7 @@
     /* the approach: from the wide room shot (covering the stage, subject a bit right of centre on wide screens) to the camera
        where its subject matches the locked close-up exactly, then a crossfade into that close-up */
     const apDraw = p => {
-      const R = F.length - 1, kA = CAM.k * F[R].w / AP.w;
+      const R = intro ? F.length - 1 : 0, kA = CAM.k * F[R].w / AP.w;   // the walk ends on the frame the steps start from
       const end = { k: kA, x: F[R].ax * CAM.k + CAM.x - AP.ax * kA, y: F[R].ay * CAM.k + CAM.y - AP.ay * kA };
       /* walking towards it: start with the whole room covering the stage, end at the locked close view. Zoom is
          exponential (constant speed through the room) and the subject's screen point follows the same eased curve. */
@@ -128,19 +139,29 @@
   const stepOf = (p, intro) => intro ? (p < .12 ? -1 : p < .23 ? -.5 : p < .44 ? 0 : p < .6 ? 1 : p < .75 ? 2 : 3) : (p < .29 ? 0 : p < .51 ? 1 : p < .69 ? 2 : 3);
 
   if (sec && photo) pinned(photoScene(photo, (p, intro) => setStep(Math.max(0, stepOf(p, intro)))));
+  if (sec && photo) dots.forEach((d, i) => d.addEventListener('click', () => jumpTo(pin, i, 0)));
 
   const hpin = $('#hpin'), hph = $('#heroPhoto');
   if (hpin && hph) {
     const labels = JSON.parse(hph.dataset.labels), chipH = $('.hv-chip', hph), bar = $('.hv-bar i', hph), hint = $('.hhint');
     let label = '';
+    const hsb = $$('.hv-steps button', hph);
     const draw = photoScene(hph, (p, intro) => {
-      const st = p < 0 ? -1 : stepOf(p, intro), l = st === -1 ? labels[0] : st === -.5 ? labels[1] : labels[2 + st];
+      /* messy-first (no intro): "Før" while walking in and on the first picture, "Resultatet" on the last */
+      const st = p < 0 ? (intro ? -1 : -.5) : !intro && p < .06 ? -.5 : !intro && p >= .93 ? -1 : stepOf(p, intro),
+        l = st === -1 ? labels[0] : st === -.5 ? labels[1] : labels[2 + st];
       if (l !== label) { label = l; chipH.textContent = l; chipH.classList.remove('pop'); void chipH.offsetWidth; chipH.classList.add('pop'); chipH.classList.toggle('after', st === -1 || st === 3); }
       bar.style.transform = `scaleX(${Math.max(0, p).toFixed(3)})`;
       if (hint) hint.style.opacity = p > .04 ? 0 : 1;
+      hsb.forEach((b, i) => b.toggleAttribute('aria-current', st === i || (st === -1 && !intro && i === 3)));
     });
+    hsb.forEach((b, i) => b.addEventListener('click', () => jumpTo(hpin, i, $('.fr.ap', hph) ? AP_SHARE : 0)));
     bindPin(hpin, draw, () => hpin.classList.add('static'));
-    /* invite to scroll: the picture breathes very slightly and an arrow bounces until the visitor starts scrolling */
+    /* the step photos wait until the visitor starts scrolling (or the page has settled), so the first view loads fast */
+    const loadFrames = () => $$('img[data-src]', hph).forEach(i => { i.src = i.dataset.src; i.removeAttribute('data-src'); });
+    addEventListener('scroll', loadFrames, { once: true, passive: true });
+    addEventListener('load', () => setTimeout(loadFrames, 2500), { once: true });
+    /* invite to scroll: the mouse cue rolls its wheel until the visitor starts scrolling */
     const idle = () => { if (scrollY < 8) hpin.classList.add('idle'); };
     setTimeout(idle, 900);
     addEventListener('scroll', () => { if (scrollY > 8) hpin.classList.remove('idle'); else idle(); }, { passive: true });
@@ -249,7 +270,7 @@
   const btn = $('#hostBtn'), box = $('#host');
   if (!box) return;
   const log = $('#hostLog'), form = $('#hostForm'), input = $('#hostIn');
-  const open = () => { box.hidden = false; btn?.classList.add('away'); btn?.setAttribute('aria-expanded', 'true'); setTimeout(() => input.focus(), 50); };
+  const open = () => { loadIdx(); box.hidden = false; btn?.classList.add('away'); btn?.setAttribute('aria-expanded', 'true'); setTimeout(() => input.focus(), 50); };
   const close = () => { try { speechSynthesis.cancel(); } catch (e) {} box.hidden = true; btn?.classList.remove('away'); btn?.setAttribute('aria-expanded', 'false'); };
   btn?.addEventListener('click', open);
   $$('[data-open-host]').forEach(b => b.addEventListener('click', open));
@@ -269,6 +290,30 @@
     });
     return bs >= .55 ? best.a : K.fallback;
   };
+  /* site search inside the assistant: the index (one entry per heading on every page) loads on first open;
+     the best 3 places on the site are linked under the answer, sub pages before the front page */
+  let IDX = null;
+  const loadIdx = () => { if (!IDX && box.dataset.idx) { IDX = []; fetch(box.dataset.idx).then(r => r.json()).then(d => { IDX = d; }).catch(() => {}); } };
+  const hits = q => {
+    const qt = toks(q).map(stem); if (!qt.length || !IDX) return [];
+    const seen = new Set();
+    return IDX.map(e => {
+      const h = fold(e.h), x = fold(e.x), p = fold(e.p); let n = 0, sc = 0;
+      qt.forEach(w => { const a = h.includes(w) ? 5 : 0, b = x.includes(w) ? 1 : 0, c = p.includes(w) ? 2 : 0; if (a || b || c) n++; sc += a + b + c; });
+      return n ? { e, n, sc: sc + (e.u.split('#')[0].length > 4 ? .5 : 0) } : null;
+    }).filter(Boolean).sort((a, b) => b.n - a.n || b.sc - a.sc)
+      .filter(({ e }) => { const k = e.h + '|' + e.x.slice(0, 40); if (seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0, 3).map(r => r.e);
+  };
+  const links = q => {
+    const hs = hits(q); if (!hs.length) return;
+    const d = document.createElement('div'); d.className = 'msg bot hits';
+    const t = document.createElement('p'); t.textContent = box.dataset.see; d.appendChild(t);
+    hs.forEach(e => { const a = document.createElement('a'); a.href = e.u; a.innerHTML = '<small></small><strong></strong>';
+      a.firstChild.textContent = e.p; a.lastChild.textContent = e.h; d.appendChild(a); });
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+  };
+  log.addEventListener('click', e => { const a = e.target.closest('a'); if (a && a.pathname === location.pathname) setTimeout(() => { openHash(); }, 0); });
   const say = (t, who) => { const p = document.createElement('p'); p.className = 'msg ' + who; p.textContent = t; log.appendChild(p); log.scrollTop = log.scrollHeight; return p; };
 
   /* voice: the browser's own speech recognition (Chrome, Edge, Safari) in, speechSynthesis out, in the page language.
@@ -283,7 +328,7 @@
   const speak = t => { if (!speakOn || !window.speechSynthesis) return; speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(t); u.lang = LANG; const v = pickVoice(); if (v) u.voice = v; u.rate = 1.02; speechSynthesis.speak(u); };
   window.speechSynthesis?.addEventListener?.('voiceschanged', () => {});
-  const ask = (q, voice) => { if (!q.trim()) return; say(q, 'me'); setTimeout(() => { const a = answer(q); say(a, 'bot'); if (voice || speakOn) speak(a); }, 250); };
+  const ask = (q, voice) => { if (!q.trim()) return; say(q, 'me'); setTimeout(() => { const a = answer(q); say(a, 'bot'); links(q); if (voice || speakOn) speak(a); }, 250); };
   form.addEventListener('submit', e => { e.preventDefault(); ask(input.value); input.value = ''; });
   $$('.chip', box).forEach(c => c.addEventListener('click', () => ask(c.textContent)));
 
