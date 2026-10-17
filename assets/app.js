@@ -17,6 +17,21 @@
   const openHash = () => { const t = location.hash && document.getElementById(location.hash.slice(1)); if (t?.tagName === 'SUMMARY') t.parentElement.open = true; };
   addEventListener('hashchange', openHash); openHash();
 
+  /* rooms: tap to select one or more; the button books a chat about exactly those rooms */
+  $$('.rooms').forEach(sec => {
+    const go = $('.room-go', sec), btn = go && $('a', go), sel = new Set(), pick = btn?.textContent;
+    const upd = () => { if (!btn) return; const list = [...sel];
+      if (!list.length) { btn.textContent = pick; btn.setAttribute('aria-disabled', 'true'); btn.href = go.dataset.base + '#kontakt'; return; }
+      btn.removeAttribute('aria-disabled');
+      btn.textContent = `${go.dataset.book} ${list.length === 1 ? list[0].toLowerCase() : list.length + ' ' + go.dataset.n} →`;
+      btn.href = go.dataset.base + '?rum=' + encodeURIComponent(list.join(', ')) + '#kontakt'; };
+    $$('.room', sec).forEach(r => r.addEventListener('click', e => { e.preventDefault(); const n = r.dataset.room;
+      sel.has(n) ? sel.delete(n) : sel.add(n); r.setAttribute('aria-pressed', sel.has(n)); upd(); }));
+    btn?.addEventListener('click', e => { if (!sel.size) { e.preventDefault(); sec.querySelector('.room')?.focus(); } });
+  });
+  /* a room card opens the contact form with that room filled in (?rum=Garage) */
+  { const rum = new URLSearchParams(location.search).get('rum'), f = $('#cform input[name="room"]'); if (rum && f && !f.value) f.value = rum; }
+
   $('.theme-t')?.addEventListener('click', () => {
     const root = document.documentElement, cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
@@ -56,7 +71,7 @@
      intro = open on the finished state (frame 3), then mess -> emptied -> sorted -> finished. */
   /* the step buttons (1-4) jump to a step without scrolling by hand: they glide the page to that step's resting point,
      so the scene still plays through on the way. Points are shares of the scene (after the walk-in), messy-first order. */
-  const AP_SHARE = .18, STEP_AT = [.28, .5, .62, .97];
+  const AP_SHARE = .18, STEP_AT = [.08, .3, .56, .9];
   const jumpTo = (pinEl, i, a0) => {
     const p = a0 + (1 - a0) * STEP_AT[i], top = scrollY + pinEl.getBoundingClientRect().top + p * (pinEl.offsetHeight - innerHeight);
     scrollTo({ top, behavior: reduce.matches ? 'auto' : 'smooth' });
@@ -64,8 +79,34 @@
   const photoScene = (el, onP) => {
     const F = $$('.fr:not(.ap)', el).map(f => ({ el: f, ax: +f.dataset.ax, ay: +f.dataset.ay, w: +f.dataset.w }));
     const apEl = $('.fr.ap', el), AP = apEl && { el: apEl, ax: +apEl.dataset.ax, ay: +apEl.dataset.ay, w: +apEl.dataset.w, iw: +apEl.dataset.iw, ih: +apEl.dataset.ih };
-    const A0 = AP ? AP_SHARE : 0;                                    // share of the scroll used to move into the room
-    const intro = el.dataset.intro === '1';
+    const A0 = AP ? AP_SHARE : 0;
+    /* doors: the cupboard area of an image-to-video clip (the doors swinging, in the photo's own light), one frame per
+       step of the walk-in, drawn over the room photo in its pixel space; the last frame is the photo itself, open */
+    const DE = $('.hv-doors', el), DD = DE && JSON.parse(DE.dataset.doors);
+    let lastD = null, DI = [];
+    const loadDoors = () => { if (DI.length || !DD) return; DI = DD.src.map((src, n) => { const im = new Image(); im.decoding = 'async';
+      im.onload = () => lastD && doors(...lastD); im.src = src; return im; }); };
+    if (DD) { loadDoors(); }
+    const doors = (x, y, k, u, fade) => {
+      if (!DE) return;
+      lastD = [x, y, k, u, fade];
+      const dpr = Math.min(devicePixelRatio || 1, 2), W = el.clientWidth, H = el.clientHeight;
+      if (DE.width !== Math.round(W * dpr) || DE.height !== Math.round(H * dpr)) { DE.width = Math.round(W * dpr); DE.height = Math.round(H * dpr); }
+      const c = DE.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, DE.width, DE.height);
+      if (fade >= 1 || !DI.length) return;
+      const [ox, oy, os] = DD.ap_offset, kk = k * os, a = clamp((u - DD.open[0]) / (DD.open[1] - DD.open[0])), e = a * a * (3 - 2 * a);
+      const want = Math.round(e * (DI.length - 1));
+      let im = null; for (let d = 0; d < DI.length && !im; d++) for (const j of [want - d, want + d]) if (DI[j] && DI[j].complete && DI[j].naturalWidth) { im = DI[j]; break; }
+      if (!im) return;
+      const [X0, Y0, X1, Y1] = DD.rect;
+      c.setTransform(dpr * kk, 0, 0, dpr * kk, dpr * (x + k * ox), dpr * (y + k * oy)); c.imageSmoothingQuality = 'high';
+      /* the clip is softer than the photo, so it only plays while the cupboard is small on screen; then it hands over
+         to the (open, sharp) room photo underneath for the rest of the walk */
+      const h = DD.handoff ? clamp((u - DD.handoff[0]) / (DD.handoff[1] - DD.handoff[0])) : 0, ho = h * h * (3 - 2 * h);
+      if (ho >= 1) return;
+      c.globalAlpha = (1 - fade) * (1 - ho); c.drawImage(im, X0, Y0, X1 - X0, Y1 - Y0); c.globalAlpha = 1;
+    };
+    const intro = el.dataset.intro === '1', quick = el.id === 'heroPhoto';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
     let SW = 0, SH = 0, cover = 1, SEG = [], CAM = null;
     const shift = +(el.dataset.shift || 0), whole = el.dataset.fit === 'whole';
@@ -98,10 +139,13 @@
       SEG = intro
         ? [hold(0, .04, 3), fade(.04, .2, 3, 0), hold(.2, .24, 0), fade(.24, .41, 0, 1), hold(.41, .45, 1),
            fade(.45, .61, 1, 2), hold(.61, .74, 2), fade(.74, .93, 2, 3), hold(.93, 1.01, 3)]
-        : [hold(0, .05, 0), fade(.05, .27, 0, 1), hold(.27, .31, 1), fade(.31, .52, 1, 2), hold(.52, .68, 2),
-           fade(.68, .92, 2, 3), hold(.92, 1.01, 3)];
+        : quick ? [hold(0, .12, 0), fade(.12, .19, 0, 1), hold(.19, .4, 1), fade(.4, .47, 1, 2), hold(.47, .7, 2),
+           fade(.7, .77, 2, 3), hold(.77, 1.01, 3)]               // hero: short soft changes in place, each picture rests sharp
+        : [hold(0, .14, 0), fade(.14, .22, 0, 1), hold(.22, .4, 1), fade(.4, .48, 1, 2), hold(.48, .66, 2),
+           fade(.66, .74, 2, 3), hold(.74, 1.01, 3)];             // wardrobe scene: short changes too, each picture rests sharp
     };
-    const place = (f, c, o) => { const q = fit(c); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`; f.el.style.opacity = o; };
+    const place = (f, c, o) => { const q = fit(c); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`; f.el.style.opacity = o;
+      f.el.style.webkitMaskImage = f.el.style.maskImage = ''; };
     /* the approach: from the wide room shot (covering the stage, subject a bit right of centre on wide screens) to the camera
        where its subject matches the locked close-up exactly, then a crossfade into that close-up */
     const apDraw = p => {
@@ -118,27 +162,29 @@
       const x = cx(sx0 + (fx - sx0) * t - AP.ax * k, SW - AP.iw * k), y = cx(sy0 + (fy - sy0) * t - AP.ay * k, SH - AP.ih * k);
       AP.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) scale(${k.toFixed(4)})`;
       AP.el.style.opacity = 1; AP.el.style.zIndex = 2;
+      const fd = fadeT * fadeT * (3 - 2 * fadeT);
+      doors(x, y, k, u, fd);
       F.forEach((f, j) => { if (j === R) { const q = fit(CAM); f.el.style.transform = `translate3d(${q.x.toFixed(1)}px,${q.y.toFixed(1)}px,0) scale(${q.k.toFixed(4)})`;
-        f.el.style.opacity = fadeT * fadeT * (3 - 2 * fadeT); f.el.style.zIndex = 3; } else f.el.style.opacity = 0; });
+        f.el.style.opacity = fd; f.el.style.zIndex = 4; } else f.el.style.opacity = 0; });
     };
     const draw = p => {
       if (!SW) plan();
-      if (AP) { if (p < A0) { apDraw(p / A0); el.dataset.sorting = 0; onP(-1, intro); return; } AP.el.style.opacity = 0; p = (p - A0) / (1 - A0); }
+      if (AP) { if (p < A0) { apDraw(p / A0); el.dataset.sorting = 0; onP(-1, intro); return; } AP.el.style.opacity = 0; if (DE) doors(0, 0, 1, 0, 1); p = (p - A0) / (1 - A0); }
       const s = SEG.find(g => p < g[1]) || SEG[SEG.length - 1], u = clamp((p - s[0]) / (s[1] - s[0])), t = u * u * (3 - 2 * u);
       const A = s[2], B = s[3], cam = mix(toFrame(A, B.i), B, t);
       F.forEach((f, j) => { if (j === B.i) place(f, cam, s[4] ? t : 1); else if (s[4] && j === A.i) place(f, toFrame(cam, j), 1); else f.el.style.opacity = 0; });
       F[B.i].el.style.zIndex = 2; if (s[4]) F[A.i].el.style.zIndex = 1;
-      el.dataset.sorting = intro ? +(p >= .59 && p < .76) : +(p >= .5 && p < .71);
-      onP(p, intro);
+      el.dataset.sorting = intro ? +(p >= .59 && p < .76) : quick ? +(p >= .58 && p < .74) : +(p >= .44 && p < .7);
+      onP(p, intro, quick);
     };
     draw.resize = plan;
     F.forEach(f => f.el.addEventListener('load', () => { SW = 0; }, { once: true }));
     return draw;
   };
   /* which of the four steps a progress value belongs to (-1 = the opening "result" shot, -0.5 = the mess before step 1) */
-  const stepOf = (p, intro) => intro ? (p < .12 ? -1 : p < .23 ? -.5 : p < .44 ? 0 : p < .6 ? 1 : p < .75 ? 2 : 3) : (p < .29 ? 0 : p < .51 ? 1 : p < .69 ? 2 : 3);
+  const stepOf = (p, intro, quick) => intro ? (p < .12 ? -1 : p < .23 ? -.5 : p < .44 ? 0 : p < .6 ? 1 : p < .75 ? 2 : 3) : (quick ? (p < .44 ? 0 : p < .58 ? 1 : p < .74 ? 2 : 3) : (p < .18 ? 0 : p < .44 ? 1 : p < .7 ? 2 : 3));
 
-  if (sec && photo) pinned(photoScene(photo, (p, intro) => setStep(Math.max(0, stepOf(p, intro)))));
+  if (sec && photo) pinned(photoScene(photo, (p, intro, quick) => setStep(Math.max(0, stepOf(p, intro, quick)))));
   if (sec && photo) dots.forEach((d, i) => d.addEventListener('click', () => jumpTo(pin, i, 0)));
 
   const hpin = $('#hpin'), hph = $('#heroPhoto');
@@ -146,13 +192,13 @@
     const labels = JSON.parse(hph.dataset.labels), chipH = $('.hv-chip', hph), bar = $('.hv-bar i', hph), hint = $('.hhint');
     let label = '';
     const hsb = $$('.hv-steps button', hph);
-    const draw = photoScene(hph, (p, intro) => {
+    const draw = photoScene(hph, (p, intro, quick) => {
       /* messy-first (no intro): "Før" while walking in and on the first picture, "Resultatet" on the last */
-      const st = p < 0 ? (intro ? -1 : -.5) : !intro && p < .06 ? -.5 : !intro && p >= .93 ? -1 : stepOf(p, intro),
+      const st = p < 0 ? (intro ? -1 : -.5) : !intro && p < .15 ? -.5 : !intro && p >= .93 ? -1 : stepOf(p, intro, quick),
         l = st === -1 ? labels[0] : st === -.5 ? labels[1] : labels[2 + st];
       if (l !== label) { label = l; chipH.textContent = l; chipH.classList.remove('pop'); void chipH.offsetWidth; chipH.classList.add('pop'); chipH.classList.toggle('after', st === -1 || st === 3); }
       bar.style.transform = `scaleX(${Math.max(0, p).toFixed(3)})`;
-      if (hint) hint.style.opacity = p > .04 ? 0 : 1;
+      if (hint) hint.style.opacity = scrollY > 8 ? 0 : 1;            // the invitation goes as soon as the visitor scrolls
       hsb.forEach((b, i) => b.toggleAttribute('aria-current', st === i || (st === -1 && !intro && i === 3)));
     });
     hsb.forEach((b, i) => b.addEventListener('click', () => jumpTo(hpin, i, $('.fr.ap', hph) ? AP_SHARE : 0)));
