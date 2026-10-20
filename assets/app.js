@@ -71,7 +71,7 @@
      intro = open on the finished state (frame 3), then mess -> emptied -> sorted -> finished. */
   /* the step buttons (1-4) jump to a step without scrolling by hand: they glide the page to that step's resting point,
      so the scene still plays through on the way. Points are shares of the scene (after the walk-in), messy-first order. */
-  const AP_SHARE = .18, STEP_AT = [.08, .3, .56, .9];
+  const AP_SHARE = .3, STEP_AT = [.08, .3, .56, .9];
   const jumpTo = (pinEl, i, a0) => {
     const p = a0 + (1 - a0) * STEP_AT[i], top = scrollY + pinEl.getBoundingClientRect().top + p * (pinEl.offsetHeight - innerHeight);
     scrollTo({ top, behavior: reduce.matches ? 'auto' : 'smooth' });
@@ -96,7 +96,9 @@
       if (fade >= 1 || !DI.length) return;
       const [ox, oy, os] = DD.ap_offset, kk = k * os, a = clamp((u - DD.open[0]) / (DD.open[1] - DD.open[0])), e = a * a * (3 - 2 * a);
       const want = Math.round(e * (DI.length - 1));
-      let im = null; for (let d = 0; d < DI.length && !im; d++) for (const j of [want - d, want + d]) if (DI[j] && DI[j].complete && DI[j].naturalWidth) { im = DI[j]; break; }
+      /* never show a frame ahead of the scroll (that made the doors flap while frames loaded): the wanted one, else the
+         nearest earlier one that has loaded; and never step backwards from what is already on screen while scrolling on */
+      let im = null; for (let j = want; j >= 0 && !im; j--) if (DI[j] && DI[j].complete && DI[j].naturalWidth) im = DI[j];
       if (!im) return;
       const [X0, Y0, X1, Y1] = DD.rect;
       c.setTransform(dpr * kk, 0, 0, dpr * kk, dpr * (x + k * ox), dpr * (y + k * oy)); c.imageSmoothingQuality = 'high';
@@ -104,7 +106,7 @@
          to the (open, sharp) room photo underneath for the rest of the walk */
       const h = DD.handoff ? clamp((u - DD.handoff[0]) / (DD.handoff[1] - DD.handoff[0])) : 0, ho = h * h * (3 - 2 * h);
       if (ho >= 1) return;
-      c.globalAlpha = (1 - fade) * (1 - ho); c.drawImage(im, X0, Y0, X1 - X0, Y1 - Y0); c.globalAlpha = 1;
+      c.globalAlpha = 1 - ho; c.drawImage(im, X0, Y0, X1 - X0, Y1 - Y0); c.globalAlpha = 1;   // stays until the step photo on top has faded in (no ghost of the shut doors)
     };
     const intro = el.dataset.intro === '1', quick = el.id === 'heroPhoto';
     const IW = +el.dataset.w, IH = +el.dataset.h, [sx, sy, sz] = el.dataset.sort.split(',').map(Number);
@@ -139,8 +141,8 @@
       SEG = intro
         ? [hold(0, .04, 3), fade(.04, .2, 3, 0), hold(.2, .24, 0), fade(.24, .41, 0, 1), hold(.41, .45, 1),
            fade(.45, .61, 1, 2), hold(.61, .74, 2), fade(.74, .93, 2, 3), hold(.93, 1.01, 3)]
-        : quick ? [hold(0, .12, 0), fade(.12, .19, 0, 1), hold(.19, .4, 1), fade(.4, .47, 1, 2), hold(.47, .7, 2),
-           fade(.7, .77, 2, 3), hold(.77, 1.01, 3)]               // hero: short soft changes in place, each picture rests sharp
+        : quick ? [hold(0, .14, 0), fade(.14, .165, 0, 1), hold(.165, .42, 1), fade(.42, .445, 1, 2), hold(.445, .72, 2),
+           fade(.72, .745, 2, 3), hold(.745, 1.01, 3)]               // hero: short soft changes in place, each picture rests sharp
         : [hold(0, .14, 0), fade(.14, .22, 0, 1), hold(.22, .4, 1), fade(.4, .48, 1, 2), hold(.48, .66, 2),
            fade(.66, .74, 2, 3), hold(.74, 1.01, 3)];             // wardrobe scene: short changes too, each picture rests sharp
     };
@@ -157,9 +159,10 @@
       const kS = Math.max(SW / AP.iw, SH / AP.ih) * 1.001, xS = (SW - AP.iw * kS) / 2, yS = (SH - AP.ih * kS) / 2;
       const sx0 = xS + AP.ax * kS, sy0 = yS + AP.ay * kS;
       const u = clamp((p - .02) / (.86 - .02)), t = (1 - Math.cos(Math.PI * u)) / 2, fadeT = clamp((p - .86) / .14);
-      const k = Math.exp(Math.log(kS) + (Math.log(end.k) - Math.log(kS)) * t);
+      let k = Math.exp(Math.log(kS) + (Math.log(end.k) - Math.log(kS)) * t);
       const cx = (v, room) => Math.min(0, Math.max(room, v));                  // never show an edge of the room photo
-      const x = cx(sx0 + (fx - sx0) * t - AP.ax * k, SW - AP.iw * k), y = cx(sy0 + (fy - sy0) * t - AP.ay * k, SH - AP.ih * k);
+      let x = cx(sx0 + (fx - sx0) * t - AP.ax * k, SW - AP.iw * k), y = cx(sy0 + (fy - sy0) * t - AP.ay * k, SH - AP.ih * k);
+      if (DD && DD.film) { const q = fit(CAM); k = q.k; x = q.x; y = q.y; }   // the walk is in the film itself: hold the camera exactly where the steps sit
       AP.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) scale(${k.toFixed(4)})`;
       AP.el.style.opacity = 1; AP.el.style.zIndex = 2;
       const fd = fadeT * fadeT * (3 - 2 * fadeT);

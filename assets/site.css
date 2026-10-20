@@ -8,11 +8,11 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #1c1819; --bg2: #241f20; --card: #2a2425; --ink: #f3ece8; --ink2: #c9bcb9; --line: #3a3233;
-  --rose: #3a2730; --rose2: #5a3a49; --acc: #e7a9c2; --acc-ink: #241a1e; --wood: #3b3230; --wood2: #4a3e3a; --shelf: #463b38; color-scheme: dark; } }
+  --bg: #34302d; --bg2: #3c3734; --card: #45403c; --ink: #f2ece7; --ink2: #d3c9c3; --line: #554e4a;
+  --rose: #4a3640; --rose2: #654655; --acc: #e9b2c8; --acc-ink: #2c2124; --wood: #4a403c; --wood2: #574b46; --shelf: #524743; color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #1c1819; --bg2: #241f20; --card: #2a2425; --ink: #f3ece8; --ink2: #c9bcb9; --line: #3a3233;
-  --rose: #3a2730; --rose2: #5a3a49; --acc: #e7a9c2; --acc-ink: #241a1e; --wood: #3b3230; --wood2: #4a3e3a; --shelf: #463b38; color-scheme: dark; }
+  --bg: #34302d; --bg2: #3c3734; --card: #45403c; --ink: #f2ece7; --ink2: #d3c9c3; --line: #554e4a;
+  --rose: #4a3640; --rose2: #654655; --acc: #e9b2c8; --acc-ink: #2c2124; --wood: #4a403c; --wood2: #574b46; --shelf: #524743; color-scheme: dark; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 90px; }
@@ -560,3 +560,5 @@ button.dot:hover { border-color: var(--acc); }
 .room-go { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .room-go .btn[aria-disabled="true"] { background: transparent; color: var(--ink2); box-shadow: inset 0 0 0 1.5px var(--line); }
 .ig-row { padding-block: 0; } .ig-row .grid { margin-top: 0; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
