@@ -565,3 +565,7 @@ button.dot:hover { border-color: var(--acc); }
 
 /* the wardrobe scene starts right under its heading (no empty band above the picture) */
 @media (min-width: 821px) { .sticky:has(.photo) { align-items: start; padding-top: 28px; } .sticky:has(.photo) .stage.photo { align-self: start; } .sticky:has(.photo) .steps-ui { align-self: center; } }
+
+@media (max-width: 820px) { .hero-scroll .hero-t { transition: opacity .45s ease, transform .45s ease; } .hero-scroll.playing .hero-t { opacity: 0; transform: translateY(-12px); pointer-events: none; } }
+
+@media (max-width: 820px) { .hero-scroll .hero-t .acts { display: none; } }   /* phone: the bottom bar already has Ring + Book */

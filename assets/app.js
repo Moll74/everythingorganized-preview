@@ -399,3 +399,11 @@
   micBtn.addEventListener('click', listen);
   $$('[data-voice]').forEach(b => b.addEventListener('click', () => setTimeout(listen, 200)));
 })();
+
+/* phone: the hero text lies over the picture, so it steps aside once the visitor starts scrolling the scene */
+(() => {
+  const hp = document.getElementById('hpin'), hs = hp && hp.closest('.hero-scroll');
+  if (!hs) return;
+  const upd = () => { const y = scrollY - hp.offsetTop; hs.classList.toggle('playing', y > innerHeight * 0.12 && y < hp.offsetHeight - innerHeight * 0.6); };
+  addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd); upd();
+})();
