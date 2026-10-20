@@ -562,3 +562,6 @@ button.dot:hover { border-color: var(--acc); }
 .ig-row { padding-block: 0; } .ig-row .grid { margin-top: 0; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* the wardrobe scene starts right under its heading (no empty band above the picture) */
+@media (min-width: 821px) { .sticky:has(.photo) { align-items: start; padding-top: 28px; } .sticky:has(.photo) .stage.photo { align-self: start; } .sticky:has(.photo) .steps-ui { align-self: center; } }
