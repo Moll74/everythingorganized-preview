@@ -569,3 +569,5 @@ button.dot:hover { border-color: var(--acc); }
 @media (max-width: 820px) { .hero-scroll .hero-t { transition: opacity .45s ease, transform .45s ease; } .hero-scroll.playing .hero-t { opacity: 0; transform: translateY(-12px); pointer-events: none; } }
 
 @media (max-width: 820px) { .hero-scroll .hero-t .acts { display: none; } }   /* phone: the bottom bar already has Ring + Book */
+
+.hero-scroll .hv-chip { display: none !important; }   /* no step label on the hero picture */
