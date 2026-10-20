@@ -576,3 +576,12 @@ button.dot:hover { border-color: var(--acc); }
 .hero-scroll .exits-row { display: none !important; }   /* no Genbrug/Sælges/Losseplads labels on the hero picture */
 
 @media (min-width: 821px) { .sticky:has(.photo) { height: auto; padding-bottom: 28px; } }   /* the scene ends where the picture ends (no empty band below it) */
+
+/* desktop: the hero text opens centred on the picture and glides to the left as soon as the visitor starts scrolling */
+@media (min-width: 821px) {
+  .hero-scroll .hero-t { transition: transform .8s cubic-bezier(.4, 0, .2, 1), text-align .8s; }
+  .hero-scroll:not(.started) .hero-t { transform: translateX(calc((100vw - min(56vw, 760px)) / 2)); text-align: center; }
+  .hero-scroll:not(.started) .hero-t > * { margin-left: auto; margin-right: auto; }
+  .hero-scroll:not(.started) .hero-t .acts, .hero-scroll:not(.started) .hero-t .hero-tv { justify-content: center; }
+}
+@media (min-width: 821px) { .hero-scroll:not(.started) .hero-t { background: radial-gradient(ellipse 60% 55% at 50% 50%, rgba(20,14,16,.55) 0%, rgba(20,14,16,.32) 55%, transparent 100%); } }

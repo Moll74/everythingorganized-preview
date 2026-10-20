@@ -404,6 +404,7 @@
 (() => {
   const hp = document.getElementById('hpin'), hs = hp && hp.closest('.hero-scroll');
   if (!hs) return;
-  const upd = () => { const y = scrollY - hp.offsetTop; hs.classList.toggle('playing', y > innerHeight * 0.12 && y < hp.offsetHeight - innerHeight * 0.6); };
+  const upd = () => { const y = scrollY - hp.offsetTop; hs.classList.toggle('playing', y > innerHeight * 0.12 && y < hp.offsetHeight - innerHeight * 0.6);
+    hs.classList.toggle('started', y > 8); };
   addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd); upd();
 })();
