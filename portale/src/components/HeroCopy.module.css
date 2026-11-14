@@ -1,0 +1,151 @@
+.hero {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  color: var(--white);
+  pointer-events: none;
+}
+
+.hero > * {
+  pointer-events: auto;
+}
+
+.column {
+  position: absolute;
+  left: var(--edge);
+  bottom: calc(137 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(93.8 * var(--u) - var(--cap) * var(--display-size));
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  opacity: 0;
+}
+
+.square {
+  flex: none;
+  width: calc(11 * var(--u));
+  height: calc(11 * var(--u));
+  border-radius: var(--radius-small);
+  background: var(--white);
+}
+
+.badgeText {
+  display: block;
+  font-size: var(--small-size);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  --lh-half: 0.575em;
+  white-space: nowrap;
+}
+
+.headline {
+  font-size: var(--display-size);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: var(--display-leading);
+  --lh-half: calc(var(--display-leading) / 2);
+  opacity: 0;
+}
+
+.line {
+  display: block;
+  white-space: nowrap;
+}
+
+.word {
+  display: inline-block;
+}
+
+.buttons {
+  position: absolute;
+  left: var(--edge);
+  bottom: var(--bottom);
+  display: flex;
+  gap: calc(12 * var(--u));
+  opacity: 0;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--button-h);
+  border-radius: var(--radius-pill);
+  font-size: var(--small-size);
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: transform var(--fast) var(--ease-out);
+}
+
+.button > span {
+  display: block;
+  --lh-half: 0.6em;
+}
+
+.light {
+  padding: 0 calc(18 * var(--u));
+  background: var(--white);
+  color: var(--ink-button);
+  letter-spacing: -0.01em;
+}
+
+.outline {
+  padding: 0 calc(16 * var(--u));
+  border: 1px solid var(--white);
+  color: var(--white);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  position: absolute;
+  right: var(--edge);
+  bottom: var(--bottom);
+  width: calc(446 * var(--u));
+  font-size: var(--body-size);
+  letter-spacing: -0.01em;
+  line-height: var(--body-leading);
+  --lh-half: calc(var(--body-leading) / 2);
+  opacity: 0;
+}
+
+@media (hover: hover) {
+  .button:hover {
+    transform: scale(1.03);
+  }
+}
+
+@media (max-width: 1023px) {
+  .column {
+    top: calc(110.2 * var(--u) - var(--cap) * var(--small-size));
+    bottom: auto;
+    right: var(--edge);
+    max-width: calc(375 * var(--u));
+    gap: calc(56.7 * var(--u) - var(--cap) * var(--display-size));
+  }
+
+  .line {
+    white-space: normal;
+  }
+
+  .lead {
+    left: var(--edge);
+    bottom: calc(116 * var(--u));
+    width: auto;
+    max-width: calc(369 * var(--u));
+  }
+
+  .buttons {
+    right: var(--edge);
+  }
+
+  .button {
+    flex: 1;
+  }
+}
